@@ -23,6 +23,13 @@ public class ManifestFileService
     {
         WriteIndented = true,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    private static readonly JsonSerializerOptions _finalWriteOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     /// <summary>Loads a manifest from disk. Returns the parsed model plus the raw JsonObject for round-trip preservation.</summary>
@@ -58,7 +65,7 @@ public class ManifestFileService
         // no merging with raw (prevents raw-JSON preservation from overriding intentional deletions).
         var modelAuthoritativeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "dlssPresets", "dlssPresetsDev", "featureFlags"
+            "dlssPresets", "dlssPresetsDev", "featureFlags", "addonPacks"
         };
 
         foreach (var kv in originalRaw)
@@ -104,7 +111,7 @@ public class ManifestFileService
                 output[kv.Key] = kv.Value?.DeepClone();
         }
 
-        var finalJson = output.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        var finalJson = output.ToJsonString(_finalWriteOptions);
         File.WriteAllText(path, finalJson);
     }
 
