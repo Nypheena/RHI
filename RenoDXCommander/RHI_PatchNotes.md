@@ -1,4 +1,13 @@
 
+## v2.6.3
+
+### Manifest Updates
+
+- METAL GEAR SOLID 4: Guns of the Patriots - Master Collection Version linked to Luma wiki entry.
+- METAL GEAR SOLID 4: Guns of the Patriots — install warning added: switch to DX11 before installing Luma.
+
+---
+
 ## v2.6.2
 
 ### Changes
@@ -10,10 +19,6 @@
 ### Bug Fixes
 
 - Fixed switching away from DLSS5 Feeder not removing the shaders it deployed (DLSS5_Feed.fx, lumenite_Kernel.fx).
-
-### Manifest Updates
-
-- METAL GEAR SOLID 4: Guns of the Patriots - Master Collection Version linked to Luma wiki entry.
 
 ---
 
