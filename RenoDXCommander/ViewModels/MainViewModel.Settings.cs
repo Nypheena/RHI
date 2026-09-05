@@ -510,23 +510,24 @@ public partial class MainViewModel
 
     // ── ShortFuse Auto-Config ─────────────────────────────────────────────────
 
-    /// <summary>Returns true when ShortFuse auto-config is enabled for this game (default when absent).</summary>
+    /// <summary>Returns true when ShortFuse auto-config is enabled for this game (default: disabled when absent).</summary>
     public bool GetSfAutoConfigEnabled(string gameName, string store = "")
     {
         var key = GameKey.From(gameName, store).ToKey();
-        return !_gameNameService.SfAutoConfigDisabled.Contains(key)
-            && !_gameNameService.SfAutoConfigDisabled.Contains(gameName);
+        // Absent = disabled by default. Use SfAutoConfigEnabled (opt-in set) instead.
+        return _gameNameService.SfAutoConfigEnabled.Contains(key)
+            || _gameNameService.SfAutoConfigEnabled.Contains(gameName);
     }
 
     public void SetSfAutoConfigEnabled(string gameName, bool value, string store = "")
     {
         var key = GameKey.From(gameName, store).ToKey();
-        if (!value) // disabled → add to set
-            _gameNameService.SfAutoConfigDisabled.Add(key);
-        else // enabled → remove from set (absent = enabled)
+        if (value) // enabled → add to opt-in set
+            _gameNameService.SfAutoConfigEnabled.Add(key);
+        else // disabled → remove from opt-in set
         {
-            _gameNameService.SfAutoConfigDisabled.Remove(key);
-            _gameNameService.SfAutoConfigDisabled.Remove(gameName);
+            _gameNameService.SfAutoConfigEnabled.Remove(key);
+            _gameNameService.SfAutoConfigEnabled.Remove(gameName);
         }
         SaveNameMappings();
     }

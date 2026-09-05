@@ -111,8 +111,10 @@ public class GameNameService : IGameNameService
     /// <summary>Per-game Ultimate ASI Loader installed DLL name. Key = "GameName|Store", Value = dll filename. Absent = not installed.</summary>
     private Dictionary<string, string> _ualInstalledAs = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Games where ShortFuse auto-config is DISABLED. Composite-keyed "GameName|Store". Absent = enabled (default).</summary>
+    /// <summary>Games where ShortFuse auto-config is DISABLED. Composite-keyed. Legacy — kept for migration only.</summary>
     private HashSet<string> _sfAutoConfigDisabled = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Games where ShortFuse auto-config is ENABLED. Composite-keyed "GameName|Store". Absent = disabled (default).</summary>
+    private HashSet<string> _sfAutoConfigEnabled = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Maps current (renamed) game name → original store-detected name.</summary>
     private Dictionary<string, string> _originalDetectedNames = new(StringComparer.OrdinalIgnoreCase);
@@ -207,8 +209,10 @@ public class GameNameService : IGameNameService
     public Dictionary<string, string> OsStreamlineVersion => _osStreamlineVersion;
     /// <summary>Per-game Ultimate ASI Loader installed DLL name. Composite-keyed "GameName|Store".</summary>
     public Dictionary<string, string> UalInstalledAs => _ualInstalledAs;
-    /// <summary>Games where ShortFuse auto-config is disabled. Composite-keyed "GameName|Store". Absent = enabled.</summary>
+    /// <summary>Games where ShortFuse auto-config is disabled. Legacy — kept for migration only.</summary>
     public HashSet<string> SfAutoConfigDisabled => _sfAutoConfigDisabled;
+    /// <summary>Games where ShortFuse auto-config is explicitly enabled. Composite-keyed "GameName|Store". Absent = disabled.</summary>
+    public HashSet<string> SfAutoConfigEnabled => _sfAutoConfigEnabled;
 
     public GameNameService(
         IGameDetectionService gameDetectionService,
@@ -564,11 +568,22 @@ public class GameNameService : IGameNameService
 
         _sfAutoConfigDisabled = new HashSet<string>(
             Load<List<string>>("SfAutoConfigDisabled", new()), StringComparer.OrdinalIgnoreCase);
+        _sfAutoConfigEnabled = new HashSet<string>(
+            Load<List<string>>("SfAutoConfigEnabled", new()), StringComparer.OrdinalIgnoreCase);
 
         if (s.TryGetValue("ViewLayout", out var vlVal) && int.TryParse(vlVal, out var vlInt) && Enum.IsDefined(typeof(ViewLayout), vlInt))
             setViewLayout((ViewLayout)vlInt);
         else if (s.TryGetValue("GridLayout", out var glVal))  // backward compat
             setViewLayout(ViewLayout.Detail);
+
+        // One-time migration: force Detail view for all users on first launch after v2.6.1
+        if (!s.ContainsKey("DetailViewForced"))
+        {
+            setViewLayout(ViewLayout.Detail);
+            s["DetailViewForced"] = "1";
+            s["ViewLayout"] = ((int)ViewLayout.Detail).ToString();
+            SettingsViewModel.SaveSettingsFile(s);
+        }
 
         if (s.TryGetValue("FilterMode", out var fmVal) && !string.IsNullOrWhiteSpace(fmVal))
             setFilterMode(fmVal);
@@ -660,8 +675,9 @@ public class GameNameService : IGameNameService
                 s["OsUpscalerPlugin"] = JsonSerializer.Serialize(_osUpscalerPlugin.ToList());
                 if (_osStreamlineVersion.Count > 0) s["OsStreamlineVersion"] = JsonSerializer.Serialize(_osStreamlineVersion);
                 if (_ualInstalledAs.Count > 0) s["UalInstalledAs"] = JsonSerializer.Serialize(_ualInstalledAs);
-                if (_sfAutoConfigDisabled.Count > 0) s["SfAutoConfigDisabled"] = JsonSerializer.Serialize(_sfAutoConfigDisabled.ToList());
-                else s.Remove("SfAutoConfigDisabled");
+                if (_sfAutoConfigEnabled.Count > 0) s["SfAutoConfigEnabled"] = JsonSerializer.Serialize(_sfAutoConfigEnabled.ToList());
+                else s.Remove("SfAutoConfigEnabled");
+                s.Remove("SfAutoConfigDisabled"); // legacy — no longer written
                 s["ViewLayout"]          = ((int)currentViewLayout).ToString();
                 s["FilterMode"]          = filterMode;
                 s["CustomFilters"]       = JsonSerializer.Serialize(customFilters);
@@ -795,6 +811,7 @@ public class GameNameService : IGameNameService
         MigrateCompositeDict(_osStreamlineVersion, oldName, newName);
         MigrateCompositeDict(_ualInstalledAs, oldName, newName);
         MigrateCompositeHashSet(_sfAutoConfigDisabled, oldName, newName);
+        MigrateCompositeHashSet(_sfAutoConfigEnabled, oldName, newName);
 
         // Migrate name-only HashSets (shared across stores)
         MigrateHashSet(_wikiExclusions, oldName, newName);

@@ -593,14 +593,103 @@ public partial class DetailPanelBuilder
 
         // Method combo change handler
         bool methodComboInit = true;
-        methodCombo.SelectionChanged += (s, ev) =>
+        methodCombo.SelectionChanged += async (s, ev) =>
         {
             if (methodComboInit) return;
             var selKey = (methodCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? effectiveMethod;
+            if (selKey == effectiveMethod)
+            {
+                // Same method — just persist and refresh UI
+                _window.ViewModel.SetNrMethodOverride(gameName, selKey, store);
+                UpdateInstallBtnAppearance();
+                UpdateDescription(selKey);
+                RefreshStatus();
+                return;
+            }
+
+            // Different method selected — uninstall whatever is currently installed
+            var previousKey = effectiveMethod;
+            bool anyInstalled = previousKey switch
+            {
+                NrMethodDlss5Tool       => rdx5Svc.IsInstalledIn(installPath),
+                NrMethodDlss5ToolBridge => rdx5Svc.IsInstalledIn(installPath) || File.Exists(Path.Combine(installPath, BridgeDeployFile)),
+                NrMethodShortFuse       => rdx5Svc.IsSfInstalledIn(installPath),
+                NrMethodFeeder          => File.Exists(Path.Combine(installPath, card.Is32Bit ? FeederDeployFile32 : FeederDeployFile64)),
+                _                       => false,
+            };
+
+            if (anyInstalled)
+            {
+                methodCombo.IsEnabled  = false;
+                installBtn.IsEnabled   = false;
+                removeBtn.IsEnabled    = false;
+                installBtn.Content     = "Removing...";
+
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        switch (previousKey)
+                        {
+                            case NrMethodDlss5Tool:
+                                rdx5Svc.Uninstall(installPath);
+                                RestoreDlssDllsWithSentinel(card, _dlssStreamlineService);
+                                break;
+
+                            case NrMethodDlss5ToolBridge:
+                                rdx5Svc.Uninstall(installPath);
+                                RemoveAddonFile(installPath, BridgeDeployFile, "NeuralRendering.MethodSwitch.Bridge");
+                                RestoreDlssDllsWithSentinel(card, _dlssStreamlineService);
+                                break;
+
+                            case NrMethodShortFuse:
+                            {
+                                var det = _dlssStreamlineService.Detect(installPath);
+                                rdx5Svc.UninstallSf(installPath, det.HasAny ? det : null);
+                                _window.ViewModel.RevertSfAutoConfig(card);
+                                break;
+                            }
+
+                            case NrMethodFeeder:
+                            {
+                                var file = card.Is32Bit ? FeederDeployFile32 : FeederDeployFile64;
+                                RemoveAddonFile(installPath, file, "NeuralRendering.MethodSwitch.Feeder");
+                                rdx5Svc.Uninstall(installPath);
+                                var dlssDest     = Path.Combine(installPath, "nvngx_dlss.dll");
+                                var dlssSentinel = dlssDest + ".original";
+                                if (File.Exists(dlssSentinel))
+                                {
+                                    var info = new FileInfo(dlssSentinel);
+                                    if (info.Length == 0) { try { File.Delete(dlssDest); File.Delete(dlssSentinel); } catch { } }
+                                    else { try { File.Copy(dlssSentinel, dlssDest, overwrite: true); File.Delete(dlssSentinel); } catch { } }
+                                }
+                                rdx5Svc.RemoveNrDll(installPath);
+                                RemoveFeederShaders(installPath, gameName, store, card);
+                                break;
+                            }
+                        }
+                        CrashReporter.Log($"[NeuralRendering.MethodSwitch] Removed '{previousKey}', switching to '{selKey}' for '{gameName}'");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    CrashReporter.Log($"[NeuralRendering.MethodSwitch] Remove failed — {ex.Message}");
+                }
+            }
+
             _window.ViewModel.SetNrMethodOverride(gameName, selKey, store);
-            UpdateInstallBtnAppearance();
-            UpdateDescription(selKey);
-            RefreshStatus();
+
+            // Rebuild panel so install button and status reflect the new clean state
+            var tc = _window.ViewModel.AllCards.FirstOrDefault(c =>
+                c.GameName.Equals(gameName, StringComparison.OrdinalIgnoreCase) && c.Source == store);
+            if (tc != null)
+            {
+                var detection = _dlssStreamlineService.Detect(installPath);
+                tc.DlssDetection = detection;
+                tc.ApplyDlssDetection(detection);
+                tc.RefreshDlssVersions(_dlssStreamlineService);
+                _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(tc));
+            }
         };
         methodComboInit = false;
 
@@ -727,64 +816,7 @@ public partial class DetailPanelBuilder
                             rdx5Svc.RemoveNrDll(installPath);
 
                             // Remove only DLSS5Feeder + LumeniteFX shader files — never wipe the whole folder
-                            try
-                            {
-                                var gameKey = Models.GameKey.FromCard(gameName, store).ToKey();
-                                var shadersDir  = Path.Combine(installPath, ShaderPackService.GameReShadeShaders, "Shaders");
-                                var texturesDir = Path.Combine(installPath, ShaderPackService.GameReShadeShaders, "Textures");
-                                var packsToRemove = new[] { "DLSS5Feeder", "LumeniteFX" };
-
-                                // Delete specific pack files from the game's shader folder
-                                foreach (var packId in packsToRemove)
-                                {
-                                    var files = _shaderPackService.GetPackShaderFiles(new[] { packId });
-                                    foreach (var f in files)
-                                    {
-                                        var fxPath = Path.Combine(shadersDir, f);
-                                        try { if (File.Exists(fxPath)) File.Delete(fxPath); } catch { }
-                                    }
-                                }
-                                // Also remove lumenite texture
-                                if (Directory.Exists(texturesDir))
-                                {
-                                    foreach (var f in Directory.GetFiles(texturesDir, "lumenite_*"))
-                                        try { File.Delete(f); } catch { }
-                                }
-                                // Also remove DLSS5Feeder subfolder entirely
-                                try { if (Directory.Exists(Path.Combine(shadersDir, "DLSS5Feeder"))) Directory.Delete(Path.Combine(shadersDir, "DLSS5Feeder"), true); } catch { }
-                                try { if (Directory.Exists(Path.Combine(shadersDir, "LumeniteFX"))) Directory.Delete(Path.Combine(shadersDir, "LumeniteFX"), true); } catch { }
-                                // Remove only the two specific shader files we deployed
-                                try { if (File.Exists(Path.Combine(shadersDir, "DLSS5_Feed.fx"))) File.Delete(Path.Combine(shadersDir, "DLSS5_Feed.fx")); } catch { }
-                                try { if (File.Exists(Path.Combine(shadersDir, "lumenite_Kernel.fx"))) File.Delete(Path.Combine(shadersDir, "lumenite_Kernel.fx")); } catch { }
-                                // Also remove include folder if it only had our headers
-                                try { if (Directory.Exists(Path.Combine(shadersDir, "include"))) Directory.Delete(Path.Combine(shadersDir, "include"), true); } catch { }
-
-                                // Update persisted selection — remove our packs, keep others
-                                var current = _gameNameService.PerGameShaderSelection.TryGetValue(gameKey, out var sel)
-                                    ? sel.ToList() : new List<string>();
-                                var remaining = current
-                                    .Where(p => !p.Equals("DLSS5Feeder", StringComparison.OrdinalIgnoreCase)
-                                             && !p.Equals("LumeniteFX", StringComparison.OrdinalIgnoreCase))
-                                    .ToList();
-                                if (remaining.Count > 0)
-                                    _gameNameService.PerGameShaderSelection[gameKey] = remaining;
-                                else
-                                {
-                                    _gameNameService.PerGameShaderSelection.Remove(gameKey);
-                                    _window.DispatcherQueue?.TryEnqueue(() =>
-                                    {
-                                        _window.ViewModel.SetPerGameShaderMode(gameName, "Global", store);
-                                        card.ShaderModeOverride = null;
-                                    });
-                                }
-                                _window.DispatcherQueue?.TryEnqueue(() =>
-                                {
-                                    _window.ViewModel.SaveSettingsPublic();
-                                    // Re-deploy global shaders now that mode is back to Global
-                                    _window.ViewModel.DeployShadersForCard(gameName);
-                                });
-                            }
-                            catch { }
+                            RemoveFeederShaders(installPath, gameName, store, card);
                             break;
                         }
                     }
@@ -1457,6 +1489,58 @@ public partial class DetailPanelBuilder
                 return f;
         }
         return null;
+    }
+
+    private void RemoveFeederShaders(string installPath, string gameName, string store, GameCardViewModel card)
+    {
+        try
+        {
+            var gameKey     = Models.GameKey.FromCard(gameName, store).ToKey();
+            var shadersDir  = Path.Combine(installPath, ShaderPackService.GameReShadeShaders, "Shaders");
+            var texturesDir = Path.Combine(installPath, ShaderPackService.GameReShadeShaders, "Textures");
+
+            // Delete specific pack files
+            foreach (var packId in new[] { "DLSS5Feeder", "LumeniteFX" })
+            {
+                foreach (var f in _shaderPackService.GetPackShaderFiles(new[] { packId }))
+                    try { if (File.Exists(Path.Combine(shadersDir, f))) File.Delete(Path.Combine(shadersDir, f)); } catch { }
+            }
+            // Lumenite textures
+            if (Directory.Exists(texturesDir))
+                foreach (var f in Directory.GetFiles(texturesDir, "lumenite_*"))
+                    try { File.Delete(f); } catch { }
+            // Subfolders + loose files we deployed
+            try { if (Directory.Exists(Path.Combine(shadersDir, "DLSS5Feeder")))  Directory.Delete(Path.Combine(shadersDir, "DLSS5Feeder"),  true); } catch { }
+            try { if (Directory.Exists(Path.Combine(shadersDir, "LumeniteFX")))   Directory.Delete(Path.Combine(shadersDir, "LumeniteFX"),   true); } catch { }
+            try { if (File.Exists(Path.Combine(shadersDir, "DLSS5_Feed.fx")))     File.Delete(Path.Combine(shadersDir, "DLSS5_Feed.fx")); }     catch { }
+            try { if (File.Exists(Path.Combine(shadersDir, "lumenite_Kernel.fx"))) File.Delete(Path.Combine(shadersDir, "lumenite_Kernel.fx")); } catch { }
+            try { if (Directory.Exists(Path.Combine(shadersDir, "include")))      Directory.Delete(Path.Combine(shadersDir, "include"),       true); } catch { }
+
+            // Update persisted shader selection — remove our packs, keep others
+            var current = _gameNameService.PerGameShaderSelection.TryGetValue(gameKey, out var sel)
+                ? sel.ToList() : new List<string>();
+            var remaining = current
+                .Where(p => !p.Equals("DLSS5Feeder", StringComparison.OrdinalIgnoreCase)
+                         && !p.Equals("LumeniteFX",  StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (remaining.Count > 0)
+                _gameNameService.PerGameShaderSelection[gameKey] = remaining;
+            else
+            {
+                _gameNameService.PerGameShaderSelection.Remove(gameKey);
+                _window.DispatcherQueue?.TryEnqueue(() =>
+                {
+                    _window.ViewModel.SetPerGameShaderMode(gameName, "Global", store);
+                    card.ShaderModeOverride = null;
+                });
+            }
+            _window.DispatcherQueue?.TryEnqueue(() =>
+            {
+                _window.ViewModel.SaveSettingsPublic();
+                _window.ViewModel.DeployShadersForCard(gameName);
+            });
+        }
+        catch (Exception ex) { CrashReporter.Log($"[NeuralRendering.RemoveFeederShaders] Failed for '{gameName}' — {ex.Message}"); }
     }
 
     private static void RemoveAddonFile(string installPath, string fileName, string logCtx)

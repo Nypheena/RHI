@@ -1,4 +1,22 @@
 
+## v2.6.2
+
+### Changes
+
+- Switching the Neural Rendering method now automatically removes any components installed by the previous method, giving a clean slate before installing the new one.
+- ShortFuse ASI auto-config (ReShade rename + UAL install) is now opt-in rather than enabled by default.
+- Detail view is now the default layout. All users are switched to it once on first launch of this version.
+
+### Bug Fixes
+
+- Fixed switching away from DLSS5 Feeder not removing the shaders it deployed (DLSS5_Feed.fx, lumenite_Kernel.fx).
+
+### Manifest Updates
+
+- METAL GEAR SOLID 4: Guns of the Patriots - Master Collection Version linked to Luma wiki entry.
+
+---
+
 ## v2.6.1
 
 ### Changes
