@@ -121,6 +121,9 @@ public sealed partial class MainWindow
     internal void UninstallOsButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.UninstallOsButton_Click(sender, e);
 
+    internal void OsCogButton_ClickInternal(object sender, RoutedEventArgs e)
+        => OsCogButton_Click(sender, e);
+
     internal void InstallRefButton_Click(object sender, RoutedEventArgs e)
         => _installEventHandler.InstallRefButton_Click(sender, e);
 

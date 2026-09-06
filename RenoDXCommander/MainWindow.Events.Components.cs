@@ -584,7 +584,7 @@ public sealed partial class MainWindow
 
                         var label = new TextBlock
                         {
-                            Text = isSetPath ? "Upgrade Path" : isDumpLut ? "Dump LUT Shaders" : kv.Key,
+                            Text = isSetPath ? "Upgrade Path" : isDumpLut ? "Dump LUT Shaders" : kv.Key.StartsWith("Upgrade_", StringComparison.OrdinalIgnoreCase) ? kv.Key.Substring(8) : kv.Key,
                             FontSize = 11,
                             Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
                             VerticalAlignment = VerticalAlignment.Center,
@@ -1077,7 +1077,7 @@ public sealed partial class MainWindow
             XamlRoot = Content.XamlRoot,
             RequestedTheme = ElementTheme.Dark,
         };
-        dialog.Resources["ContentDialogMaxWidth"] = 560.0;
+        dialog.Resources["ContentDialogMaxWidth"] = 740.0;
         await DialogService.ShowSafeAsync(dialog);
         _detailPanelBuilder?.UpdateDetailComponentRows(card);
     }

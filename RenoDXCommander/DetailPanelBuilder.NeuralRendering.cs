@@ -735,6 +735,24 @@ public partial class DetailPanelBuilder
 
                 // Persist chosen method
                 _window.ViewModel.SetNrMethodOverride(gameName, selKey, store);
+
+                // Remove conflicting global addons — DLSS5 Tool and ShortFuse both deploy NR addons
+                // that conflict with the NR section. Remove them from the global set so they don't
+                // get re-deployed on every refresh.
+                var globalAddons = _window.ViewModel.Settings.EnabledGlobalAddons;
+                var conflicting  = new[] { "DLSS5 Tool", "DLSS Tool (ShortFuse)" };
+                bool removedAny  = false;
+                foreach (var c in conflicting)
+                    if (globalAddons.RemoveAll(a => a.Equals(c, StringComparison.OrdinalIgnoreCase)) > 0)
+                        removedAny = true;
+                if (removedAny)
+                {
+                    _window.ViewModel.SaveSettingsPublic();
+                    CrashReporter.Log($"[NeuralRendering.Install] Removed conflicting global addons (DLSS5 Tool / ShortFuse) for '{gameName}'");
+                }
+
+                // Re-deploy addons for this game so stale NR addon files are removed immediately
+                _window.ViewModel.DeployAddonsForCard(gameName);
             }
             catch (Exception ex)
             {

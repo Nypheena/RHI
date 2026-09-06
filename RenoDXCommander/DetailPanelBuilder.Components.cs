@@ -317,11 +317,6 @@ public partial class DetailPanelBuilder
             ApplyInfoButtonStyle(_window.DetailDcInfoBtn, card, AddonType.DisplayCommander);
         }
 
-        // OptiScaler row — always visible, greyed out for 32-bit games
-        _window.DetailOsRow.Visibility = card.OsRowVisibility;
-        _window.DetailOptionalSeparator.Visibility = card.OsRowVisibility == Visibility.Visible
-            ? Visibility.Visible : Visibility.Collapsed;
-
         // Recommended separator — visible when DOF Fix is available
         _window.DetailRecommendedSeparator.Visibility = card.DofFixRowVisibility == Visibility.Visible
             ? Visibility.Visible : Visibility.Collapsed;
@@ -357,52 +352,6 @@ public partial class DetailPanelBuilder
             var dofShow = card.DofFixDeleteVisibility == Visibility.Visible;
             _window.DetailDofFixDeleteBtn.Opacity = dofShow ? 1 : 0;
             _window.DetailDofFixDeleteBtn.IsHitTestVisible = dofShow;
-        }
-
-        bool osGreyed = card.Is32Bit;
-        _window.DetailOsRow.Opacity = 1.0;
-        _window.DetailOsRow.IsHitTestVisible = true;
-        if (osGreyed)
-        {
-            _window.DetailOsLabel.TextDecorations = Windows.UI.Text.TextDecorations.Strikethrough;
-            _window.DetailOsLabel.Opacity = 0.35;
-            _window.DetailOsStatus.TextDecorations = Windows.UI.Text.TextDecorations.Strikethrough;
-            _window.DetailOsStatus.Opacity = 0.35;
-        }
-        else
-        {
-            _window.DetailOsLabel.TextDecorations = Windows.UI.Text.TextDecorations.None;
-            _window.DetailOsLabel.Opacity = 1.0;
-            _window.DetailOsStatus.Opacity = 1.0;
-        }
-        if (card.OsRowVisibility == Visibility.Visible)
-        {
-            _window.DetailOsStatus.Text = card.OsStatusText;
-            _window.DetailOsStatus.Foreground = UIFactory.GetBrush(card.OsStatusColor);
-            if (!osGreyed)
-            {
-                _window.DetailOsStatus.TextDecorations = card.IsOsInstalled
-                    ? Windows.UI.Text.TextDecorations.Underline
-                    : Windows.UI.Text.TextDecorations.None;
-            }
-            _window.DetailOsInstallBtn.Tag = card;
-            _window.DetailOsInstallBtn.Content = WithInfoArrow(card.OsActionLabel, HasRealInfoContent(card, AddonType.OptiScaler), card.OsStatus == GameStatus.UpdateAvailable, _window.DetailOsInstallBtn);
-            _window.DetailOsInstallBtn.IsEnabled = card.OsInstallEnabled;
-            _window.DetailOsInstallBtn.Background = UIFactory.GetBrush(card.OsBtnBackground);
-            _window.DetailOsInstallBtn.Foreground = UIFactory.GetBrush(card.OsBtnForeground);
-            _window.DetailOsInstallBtn.BorderBrush = UIFactory.GetBrush(card.OsBtnBorderBrush);
-            _window.DetailOsInstallBtn.BorderThickness = new Thickness(1);
-            _window.DetailOsInstallBtn.Opacity = osGreyed ? 0.35 : 1.0;
-            _window.DetailOsInstallBtn.IsHitTestVisible = !osGreyed;
-            _window.DetailOsIniBtn.Tag = card;
-            _window.DetailOsIniBtn.IsEnabled = !osGreyed;
-            _window.DetailOsIniBtn.Opacity = osGreyed ? 0.35 : 1.0;
-            _window.DetailOsIniBtn.IsHitTestVisible = !osGreyed;
-            _window.DetailOsDeleteBtn.Tag = card;
-            var osShow = card.OsDeleteVisibility == Visibility.Visible;
-            _window.DetailOsDeleteBtn.Opacity = osGreyed ? 0 : (osShow ? 1 : 0);
-            _window.DetailOsDeleteBtn.IsHitTestVisible = osShow && !osGreyed;
-            ApplyInfoButtonStyle(_window.DetailOsInfoBtn, card, AddonType.OptiScaler);
         }
 
         // RenoDX row (also used for external-only / Discord link)

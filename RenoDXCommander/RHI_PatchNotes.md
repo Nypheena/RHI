@@ -1,10 +1,22 @@
 
 ## v2.6.3
 
+### Changes
+
+- OptiScaler moved from the Components section to the Extras section, alongside ASI Loader.
+- RenoDX cog Compatibility Settings: Upgrade_ prefix stripped from format labels for readability (e.g. `R10G10B10A2_UNORM` instead of `Upgrade_R10G10B10A2_UNORM`).
+- RenoDX cog dialog widened so Compatibility Settings labels no longer truncate.
+- Installing a Neural Rendering method now automatically removes conflicting global addons (DLSS5 Tool, DLSS Tool (ShortFuse)) from the global set and cleans up their files immediately.
+
+### Bug Fixes
+
+- Fixed Neural Rendering method auto-select inferring DLSS5 Tool for games that have a backed-up NR DLL but no active install.
+
 ### Manifest Updates
 
 - METAL GEAR SOLID 4: Guns of the Patriots - Master Collection Version linked to Luma wiki entry.
 - METAL GEAR SOLID 4: Guns of the Patriots — install warning added: switch to DX11 before installing Luma.
+- Eternal Strands — UE-Extended compat entry added (HDR keys skipped, LUT only) + INI overrides.
 
 ---
 
