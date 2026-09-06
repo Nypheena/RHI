@@ -28,6 +28,7 @@ public class ManifestFileService
     private static readonly JsonSerializerOptions _finalWriteOptions = new()
     {
         WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     /// <summary>Loads a manifest from disk. Returns the parsed model plus the raw JsonObject for round-trip preservation.</summary>
@@ -66,16 +67,12 @@ public class ManifestFileService
             "dlssPresets", "dlssPresetsDev", "featureFlags", "addonPacks"
         };
 
-        // Keys in this set use raw-wins merging: raw values are preserved as-is, model only adds new keys.
-        // This prevents re-serialization from corrupting unicode (™→\u2122, +→\u002B) in string values.
-        var rawWinsKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        // Keys in this set are raw-only — editor never edits these directly via the typed model,
+        // so we always preserve the raw node to avoid unicode corruption in dict keys/values.
+        var rawOnlyKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "engineHintOverrides", "graphicsApiOverrides", "snapshotOverrides",
-            "gameNotes", "lumaGameNotes", "dxvkGameNotes", "reshadeGameInfo",
-            "reframeworkGameInfo", "relimiterGameInfo", "displayCommanderGameInfo",
-            "installWarnings", "pcgwUrlOverrides", "wikiNameOverrides", "lumaNameOverrides",
-            "installPathOverrides", "engineIniPathOverrides", "launchExeOverrides",
-            "launchArgsOverrides", "dllOverrides"
+            "wikiNameOverrides", "lumaNameOverrides",
         };
 
         foreach (var kv in originalRaw)
@@ -95,21 +92,41 @@ public class ManifestFileService
                 // any nested keys the typed model doesn't capture.
                 if (!modelAuthoritativeKeys.Contains(key) && modelVal is JsonObject modelObj && kv.Value is JsonObject rawObj)
                 {
-                    var merged = rawObj.DeepClone()!.AsObject();
-                    if (!rawWinsKeys.Contains(key))
+                    if (rawOnlyKeys.Contains(key))
                     {
-                        // Standard merge: model values overwrite raw values
+                        // Raw-only: start from raw, then apply model edits using unicode-normalized key matching.
+                        // This prevents key corruption (™→\u2122) while still persisting user edits.
+                        var merged = rawObj.DeepClone()!.AsObject();
+
+                        // Build a lookup from normalized-model-key → raw-key for existing entries
+                        var rawKeyByNorm = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var rk in merged) rawKeyByNorm[NormalizeUnicode(rk.Key)] = rk.Key;
+
                         foreach (var mkv in modelObj)
-                            merged[mkv.Key] = mkv.Value?.DeepClone();
+                        {
+                            var normModelKey = NormalizeUnicode(mkv.Key);
+                            if (rawKeyByNorm.TryGetValue(normModelKey, out var existingRawKey))
+                                merged[existingRawKey] = mkv.Value?.DeepClone(); // update value, keep raw key
+                            else
+                                merged[mkv.Key] = mkv.Value?.DeepClone(); // new key from model
+                        }
+                        // Remove keys present in raw but deleted from model
+                        foreach (var rk in rawObj)
+                        {
+                            var normRawKey = NormalizeUnicode(rk.Key);
+                            if (!modelObj.Any(mk => NormalizeUnicode(mk.Key).Equals(normRawKey, StringComparison.OrdinalIgnoreCase)))
+                                merged.Remove(rk.Key);
+                        }
+                        output[key] = merged;
                     }
                     else
                     {
-                        // Raw-wins merge: only add keys present in model but absent from raw
+                        // Standard merge: raw as base, model values overwrite
+                        var merged = rawObj.DeepClone()!.AsObject();
                         foreach (var mkv in modelObj)
-                            if (!merged.ContainsKey(mkv.Key))
-                                merged[mkv.Key] = mkv.Value?.DeepClone();
+                            merged[mkv.Key] = mkv.Value?.DeepClone();
+                        output[key] = merged;
                     }
-                    output[key] = merged;
                 }
                 else
                 {
@@ -133,6 +150,17 @@ public class ManifestFileService
 
         var finalJson = output.ToJsonString(_finalWriteOptions);
         File.WriteAllText(path, finalJson);
+    }
+
+    /// <summary>
+    /// Decodes \uXXXX escape sequences in a string so that "ACE COMBAT\u21227" compares
+    /// equal to "ACE COMBAT™7" when matching model keys against raw JSON keys.
+    /// </summary>
+    private static string NormalizeUnicode(string s)
+    {
+        if (!s.Contains('\\')) return s;
+        return System.Text.RegularExpressions.Regex.Replace(s, @"\\u([0-9a-fA-F]{4})",
+            m => ((char)Convert.ToInt32(m.Groups[1].Value, 16)).ToString());
     }
 
     /// <summary>Validates a manifest file as JSON. Returns null if valid, error message if not.</summary>
