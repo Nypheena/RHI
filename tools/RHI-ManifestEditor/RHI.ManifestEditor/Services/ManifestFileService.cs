@@ -66,6 +66,18 @@ public class ManifestFileService
             "dlssPresets", "dlssPresetsDev", "featureFlags", "addonPacks"
         };
 
+        // Keys in this set use raw-wins merging: raw values are preserved as-is, model only adds new keys.
+        // This prevents re-serialization from corrupting unicode (™→\u2122, +→\u002B) in string values.
+        var rawWinsKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "engineHintOverrides", "graphicsApiOverrides", "snapshotOverrides",
+            "gameNotes", "lumaGameNotes", "dxvkGameNotes", "reshadeGameInfo",
+            "reframeworkGameInfo", "relimiterGameInfo", "displayCommanderGameInfo",
+            "installWarnings", "pcgwUrlOverrides", "wikiNameOverrides", "lumaNameOverrides",
+            "installPathOverrides", "engineIniPathOverrides", "launchExeOverrides",
+            "launchArgsOverrides", "dllOverrides"
+        };
+
         foreach (var kv in originalRaw)
         {
             var key = kv.Key;
@@ -78,14 +90,24 @@ public class ManifestFileService
             else if (modelNode.TryGetPropertyValue(key, out var modelVal))
             {
                 // For fully-managed keys, use the model output directly.
+                // For raw-wins keys, keep raw as base and only add new keys from model.
                 // For other object-typed values, merge modelNode with originalRaw to preserve
                 // any nested keys the typed model doesn't capture.
                 if (!modelAuthoritativeKeys.Contains(key) && modelVal is JsonObject modelObj && kv.Value is JsonObject rawObj)
                 {
                     var merged = rawObj.DeepClone()!.AsObject();
-                    foreach (var mkv in modelObj)
+                    if (!rawWinsKeys.Contains(key))
                     {
-                        merged[mkv.Key] = mkv.Value?.DeepClone();
+                        // Standard merge: model values overwrite raw values
+                        foreach (var mkv in modelObj)
+                            merged[mkv.Key] = mkv.Value?.DeepClone();
+                    }
+                    else
+                    {
+                        // Raw-wins merge: only add keys present in model but absent from raw
+                        foreach (var mkv in modelObj)
+                            if (!merged.ContainsKey(mkv.Key))
+                                merged[mkv.Key] = mkv.Value?.DeepClone();
                     }
                     output[key] = merged;
                 }
