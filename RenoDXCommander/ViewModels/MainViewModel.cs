@@ -44,6 +44,7 @@ public partial class MainViewModel : ObservableObject
     private readonly DlssPresetService _dlssPresetService;
     private readonly DofFixService _dofFixService;
     private readonly DlssNrCostScalerService _nrCostScalerService;
+    private readonly Rtx40MfgService _rtx40MfgService;
     private readonly UltimateAsiLoaderService _ualService;
     private readonly AutoUpdateService _autoUpdateService;
     private readonly CustomReShadeHashService _customReShadeHashService;
@@ -606,6 +607,7 @@ public partial class MainViewModel : ObservableObject
         _dlssPresetService = dlssPresetService;
         _dofFixService = App.Services.GetRequiredService<DofFixService>();
         _nrCostScalerService = App.Services.GetRequiredService<DlssNrCostScalerService>();
+        _rtx40MfgService = App.Services.GetRequiredService<Rtx40MfgService>();
         _ualService    = App.Services.GetRequiredService<UltimateAsiLoaderService>();
         _autoUpdateService = App.Services.GetRequiredService<AutoUpdateService>();
         _autoUpdateService.SetViewModel(this);

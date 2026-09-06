@@ -899,6 +899,9 @@ public partial class DetailPanelBuilder
         // ── NR Cost Scaler preference toggle ─────────────────────────────────
         var costScalerSvc = App.Services.GetRequiredService<DlssNrCostScalerService>();
         bool costScalerPref = _window.ViewModel.GetNrCostScalerEnabled(gameName, store);
+        bool nrMethodInstalled = dlss5Installed || sfInstalled || feederPresent || bridgePresent;
+        // Toggle is disabled when NR is already installed (must be set before install) or staging not ready
+        bool costScalerToggleEnabled = costScalerSvc.IsStagingReady && !nrMethodInstalled;
 
         var costScalerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10,
             Margin = new Thickness(0, 4, 0, 0) };
@@ -918,11 +921,13 @@ public partial class DetailPanelBuilder
             OnContent = "On", OffContent = "Off",
             VerticalAlignment = VerticalAlignment.Center,
             MinWidth = 0,
-            IsEnabled = costScalerSvc.IsStagingReady,
-            Opacity = costScalerSvc.IsStagingReady ? 1.0 : 0.45,
+            IsEnabled = costScalerToggleEnabled,
+            Opacity = costScalerToggleEnabled ? 1.0 : 0.45,
         };
         if (!costScalerSvc.IsStagingReady)
             ToolTipService.SetToolTip(costScalerToggle, "Cost Scaler not yet staged — will be available after first launch");
+        else if (nrMethodInstalled)
+            ToolTipService.SetToolTip(costScalerToggle, "Remove the installed NR method first, then toggle Cost Scaler On before reinstalling");
 
         // Installed indicator
         bool costScalerInstalled = DlssNrCostScalerService.IsInstalled(installPath);

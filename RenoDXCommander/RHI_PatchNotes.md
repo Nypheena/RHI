@@ -1,5 +1,10 @@
 
-## v2.6.3
+## v2.6.3-beta
+
+### New
+
+- RTX 40 MFG Unlock added to the Extras section — enables DLSS Multi Frame Generation multipliers beyond 2x (up to 6x) on RTX 40 Series GPUs for games with Streamline FG support. Requires ASI Loader and ReShade installed first.
+- DLSS NR Cost Scaler added to the Neural Rendering section — proxy for nvngx_dlssnr.dll that runs the neural model at reduced resolution (default 75%) for significant GPU savings while preserving native-resolution detail. Toggle on before installing an NR method to deploy it in one click.
 
 ### Changes
 
@@ -7,6 +12,7 @@
 - RenoDX cog Compatibility Settings: Upgrade_ prefix stripped from format labels for readability (e.g. `R10G10B10A2_UNORM` instead of `Upgrade_R10G10B10A2_UNORM`).
 - RenoDX cog dialog widened so Compatibility Settings labels no longer truncate.
 - Installing a Neural Rendering method now automatically removes conflicting global addons (DLSS5 Tool, DLSS Tool (ShortFuse)) from the global set and cleans up their files immediately.
+- Neural Rendering auto-select now defaults to ShortFuse (was DLSS5 Tool) for DX12 games with native DLSS.
 
 ### Bug Fixes
 

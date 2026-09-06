@@ -164,6 +164,7 @@ public interface IGameNameService
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Absent = disabled.</summary>
     HashSet<string> SfAutoConfigEnabled { get; }
     HashSet<string> DlssNrCostScalerEnabled { get; }
+    HashSet<string> Rtx40MfgInstalled { get; }
 
     // ── Load / Save ───────────────────────────────────────────────────────────
 

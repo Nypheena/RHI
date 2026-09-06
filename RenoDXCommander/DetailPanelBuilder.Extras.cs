@@ -1,5 +1,6 @@
 // DetailPanelBuilder.Extras.cs — Extras section: Ultimate ASI Loader and future extras.
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -71,6 +72,9 @@ public partial class DetailPanelBuilder
 
         // ── Ultimate ASI Loader row ───────────────────────────────────────────
         BuildUalRow(card, exBody);
+
+        // ── RTX 40 MFG Unlock row ─────────────────────────────────────────────
+        BuildRtx40MfgRow(card, exBody);
 
         // ── OptiScaler row ────────────────────────────────────────────────────
         BuildOsRow(card, exBody);
@@ -589,5 +593,219 @@ public partial class DetailPanelBuilder
                 Foreground = UIFactory.GetBrush(fg),
             },
         };
+    }
+
+    private void BuildRtx40MfgRow(GameCardViewModel card, StackPanel body)
+    {
+        var mfgSvc      = App.Services.GetRequiredService<Rtx40MfgService>();
+        var gameName    = card.GameName;
+        var store       = card.Source ?? "";
+        var installPath = card.InstallPath ?? "";
+
+        bool isInstalled = Rtx40MfgService.IsInstalled(installPath);
+        bool ualInstalled = !string.IsNullOrEmpty(_window.ViewModel.GetUalInstalledAs(gameName, store));
+
+        // Status
+        string statusText  = isInstalled ? (mfgSvc.StagedVersion ?? "Installed") : "Ready";
+        string statusColor = isInstalled ? "#5ECB7D" : "#A0AABB";
+
+        var row = new Grid { ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+
+        // Col 0 — label
+        var label = new TextBlock
+        {
+            Text = "RTX 40 MFG",
+            FontSize = 12,
+            Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        ToolTipService.SetToolTip(label, "RTX 40 MFG Unlock — enables DLSS Multi Frame Generation multipliers beyond 2x (up to 6x) on RTX 40 Series GPUs. Requires ASI Loader and ReShade.");
+        Grid.SetColumn(label, 0);
+        row.Children.Add(label);
+
+        // Col 1 — status
+        var statusBlock = new TextBlock
+        {
+            Text = statusText,
+            FontSize = 12,
+            Foreground = UIFactory.GetBrush(statusColor),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalTextAlignment = Microsoft.UI.Xaml.TextAlignment.Center,
+            TextDecorations = isInstalled ? Windows.UI.Text.TextDecorations.Underline : Windows.UI.Text.TextDecorations.None,
+        };
+        if (isInstalled)
+        {
+            ToolTipService.SetToolTip(statusBlock, "Click to open GitHub releases page");
+            statusBlock.PointerPressed += (s, e) =>
+                _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/dashdogy/RTX40MFG-Unlock/releases"));
+        }
+        Grid.SetColumn(statusBlock, 1);
+        row.Children.Add(statusBlock);
+
+        // Col 2 — Info button
+        var infoBtn = new Button
+        {
+            Content = "Info",
+            FontSize = 11,
+            Padding = new Thickness(6, 2, 6, 2),
+            Width = 36,
+            Height = 32,
+            Background = UIFactory.Brush(ResourceKeys.AccentBlueBgBrush),
+            Foreground = UIFactory.Brush(ResourceKeys.AccentBlueBrush),
+            BorderBrush = UIFactory.Brush(ResourceKeys.AccentBlueBorderBrush),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+        };
+        ToolTipService.SetToolTip(infoBtn, "Open RTX 40 MFG Unlock GitHub page");
+        infoBtn.Click += (s, e) =>
+            _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/dashdogy/RTX40MFG-Unlock"));
+        Grid.SetColumn(infoBtn, 2);
+        row.Children.Add(infoBtn);
+
+        // Col 3 — Install button
+        var installBtn = new Button
+        {
+            Content = isInstalled ? "Reinstall RTX 40 MFG" : "Install RTX 40 MFG",
+            FontSize = 12,
+            Height = 32,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            CornerRadius = new CornerRadius(8),
+            Background = isInstalled
+                ? UIFactory.Brush(ResourceKeys.SurfaceOverlayBrush)
+                : UIFactory.Brush(ResourceKeys.AccentBlueBgBrush),
+            Foreground = isInstalled
+                ? UIFactory.Brush(ResourceKeys.TextSecondaryBrush)
+                : UIFactory.Brush(ResourceKeys.AccentBlueBrush),
+            BorderBrush = isInstalled
+                ? UIFactory.Brush(ResourceKeys.BorderDefaultBrush)
+                : UIFactory.Brush(ResourceKeys.AccentBlueBorderBrush),
+            BorderThickness = new Thickness(1),
+        };
+
+        // Grey out if UAL not installed
+        if (!ualInstalled)
+        {
+            installBtn.IsEnabled = false;
+            installBtn.Opacity   = 0.35;
+            ToolTipService.SetToolTip(installBtn, "Install ASI Loader first — RTX 40 MFG Unlock requires it");
+        }
+        else
+        {
+            ToolTipService.SetToolTip(installBtn, isInstalled
+                ? "Reinstall RTX 40 MFG Unlock"
+                : "Install RTX 40 MFG Unlock (deploys RTX40MFG.asi, RTX40MFGCore.dll, RTX40MFG-UI.addon64)");
+        }
+
+        installBtn.Click += async (s, e) =>
+        {
+            if (string.IsNullOrEmpty(installPath)) return;
+            installBtn.IsEnabled = false;
+            installBtn.Content   = "Installing...";
+            try
+            {
+                bool ok = await Task.Run(async () =>
+                {
+                    if (!mfgSvc.IsStagingReady || mfgSvc.HasUpdate)
+                        await mfgSvc.EnsureStagingAsync().ConfigureAwait(false);
+                    return mfgSvc.Install(installPath);
+                });
+
+                if (ok)
+                {
+                    _window.ViewModel.SetRtx40MfgInstalled(gameName, true, store);
+                    _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+                }
+                else
+                {
+                    installBtn.Content   = "❌ Install failed";
+                    installBtn.IsEnabled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashReporter.Log($"[BuildRtx40MfgRow] Install failed — {ex.Message}");
+                installBtn.Content   = "❌ Install failed";
+                installBtn.IsEnabled = true;
+            }
+        };
+        Grid.SetColumn(installBtn, 3);
+        row.Children.Add(installBtn);
+
+        // Col 4 — Cog button
+        var cogBtn = new Button
+        {
+            Width = 36,
+            Height = 32,
+            Padding = new Thickness(0),
+            Background = UIFactory.Brush(ResourceKeys.SurfaceOverlayBrush),
+            Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
+            BorderBrush = UIFactory.Brush(ResourceKeys.BorderDefaultBrush),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Content = new TextBlock { Text = "⚙", FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center },
+            IsEnabled = ualInstalled,
+            Opacity = ualInstalled ? 1.0 : 0.35,
+        };
+        ToolTipService.SetToolTip(cogBtn, "RTX 40 MFG settings — configure multiplier mode");
+        cogBtn.Click += async (s, e) =>
+        {
+            var dlg = new ContentDialog
+            {
+                Title = "RTX 40 MFG Settings",
+                Content = new TextBlock
+                {
+                    Text = "Open the ReShade overlay in-game and select the DLSS MFG tab to configure:\n\n" +
+                           "• Follow game — uses the game's own MFG setting\n" +
+                           "• Fixed 2x–6x — forces a specific multiplier\n" +
+                           "• Dynamic — adjusts multiplier based on frame budget\n\n" +
+                           "If frames freeze above 2x, set Frame Generation preset to B in the NVIDIA App.",
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                PrimaryButtonText = "Open GitHub",
+                CloseButtonText = "Close",
+                XamlRoot = _window.Content.XamlRoot,
+                RequestedTheme = ElementTheme.Dark,
+            };
+            var result = await dlg.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+                _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/dashdogy/RTX40MFG-Unlock"));
+        };
+        Grid.SetColumn(cogBtn, 4);
+        row.Children.Add(cogBtn);
+
+        // Col 5 — Remove button
+        var removeBtn = new Button
+        {
+            Width = 36,
+            Height = 32,
+            Padding = new Thickness(0),
+            Background = UIFactory.Brush(ResourceKeys.AccentRedBgBrush),
+            Foreground = UIFactory.Brush(ResourceKeys.AccentRedBrush),
+            BorderBrush = UIFactory.Brush(ResourceKeys.AccentPurpleBorderBrush),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Content = new TextBlock { Text = "✕", FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Foreground = UIFactory.Brush(ResourceKeys.AccentRedBrush) },
+            Opacity = isInstalled ? 1.0 : 0,
+            IsHitTestVisible = isInstalled,
+        };
+        ToolTipService.SetToolTip(removeBtn, "Remove RTX 40 MFG Unlock from this game");
+        removeBtn.Click += (s, e) =>
+        {
+            if (string.IsNullOrEmpty(installPath)) return;
+            mfgSvc.Uninstall(installPath);
+            _window.ViewModel.SetRtx40MfgInstalled(gameName, false, store);
+            _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+        };
+        Grid.SetColumn(removeBtn, 5);
+        row.Children.Add(removeBtn);
+
+        body.Children.Add(row);
     }
 }

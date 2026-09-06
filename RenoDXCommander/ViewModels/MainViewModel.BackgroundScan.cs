@@ -133,6 +133,15 @@ public partial class MainViewModel
                 }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] NR Cost Scaler staging failed — {ex.Message}"); }
             });
+            var rtx40MfgTask = Task.Run(async () => {
+                try
+                {
+                    await _rtx40MfgService.CheckForUpdateAsync();
+                    if (!_rtx40MfgService.IsStagingReady || _rtx40MfgService.HasUpdate)
+                        await _rtx40MfgService.EnsureStagingAsync();
+                }
+                catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] RTX40MFG staging failed — {ex.Message}"); }
+            });
             var ualTask = Task.Run(async () => {
                 try
                 {
@@ -159,6 +168,7 @@ public partial class MainViewModel
             try { await hdrDbTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] HDR database task failed — {ex.Message}"); }
             try { await addonPackTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Addon pack await failed — {ex.Message}"); }
             try { await nrCostScalerTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] NR Cost Scaler staging await failed — {ex.Message}"); }
+            try { await rtx40MfgTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] RTX40MFG staging await failed — {ex.Message}"); }
 
             // Apply manifest-driven shader pack and addon pack overrides
             (_shaderPackService as ShaderPackService)?.ApplyManifestOverrides(_manifest);

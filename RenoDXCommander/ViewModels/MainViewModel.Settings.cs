@@ -551,6 +551,27 @@ public partial class MainViewModel
         SaveNameMappings();
     }
 
+    // ── RTX 40 MFG Unlock ─────────────────────────────────────────────────────
+
+    public bool GetRtx40MfgInstalled(string gameName, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        return _gameNameService.Rtx40MfgInstalled.Contains(key)
+            || _gameNameService.Rtx40MfgInstalled.Contains(gameName);
+    }
+
+    public void SetRtx40MfgInstalled(string gameName, bool value, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (value) _gameNameService.Rtx40MfgInstalled.Add(key);
+        else
+        {
+            _gameNameService.Rtx40MfgInstalled.Remove(key);
+            _gameNameService.Rtx40MfgInstalled.Remove(gameName);
+        }
+        SaveNameMappings();
+    }
+
     /// <summary>
     /// Post-ShortFuse-install auto-config: renames ReShade → Reshade64.asi,
     /// installs UAL (winmm → version → dinput8 priority), writes [INSTALL] keys to reshade.ini.
