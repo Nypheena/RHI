@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 var repos = new[]
 {
-    ("RHI", "https://api.github.com/repos/RankFTW/RenoDXChecker/releases"),
+    ("RHI", "https://api.github.com/repos/RankFTW/RHI/releases"),
     ("ReLimiter", "https://api.github.com/repos/RankFTW/ReLimiter/releases"),
     ("RHI Repo", "https://api.github.com/repos/RankFTW/rhi-repo/releases"),
 };
