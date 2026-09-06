@@ -199,7 +199,7 @@ public class DlssDetectionResult
     /// <summary>Full path to nvngx_dlssnr.dll, or null if not found.</summary>
     public string? DlssnrPath { get; set; }
 
-    /// <summary>Full path to sl.interposer.dll, or null if not found.</summary>
+    /// <summary>Full path to sl.common.dll (primary version source), or null if not found.</summary>
     public string? StreamlineInterposerPath { get; set; }
 
     /// <summary>The folder containing Streamline DLLs (derived from sl.interposer.dll location).</summary>

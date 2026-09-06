@@ -53,9 +53,8 @@ public partial class DlssStreamlineService
         {
             result.StreamlineVersion = GetFileVersion(result.StreamlineInterposerPath);
 
-            // If the interposer is an older version than another DLL in the same folder
-            // (e.g. 2.12.128 interposer bundled in a 2.12.129 release), use the highest-versioned
-            // DLL as the display version instead.
+            // If sl.common.dll is an older version than another DLL in the same folder,
+            // use the highest-versioned DLL as the display version instead.
             if (result.StreamlineFolder != null)
             {
                 var bestPath = GetHighestVersionedSlDll(result.StreamlineFolder);
@@ -66,14 +65,14 @@ public partial class DlssStreamlineService
                     {
                         result.StreamlineVersion = bestVersion;
                         result.StreamlineInterposerPath = bestPath;
-                        CrashReporter.Log($"[DlssStreamlineService.Detect] Interposer older than {Path.GetFileName(bestPath)} ({bestVersion}) — using higher version for display");
+                        CrashReporter.Log($"[DlssStreamlineService.Detect] sl.common.dll older than {Path.GetFileName(bestPath)} ({bestVersion}) — using higher version for display");
                     }
                 }
             }
         }
         else if (result.StreamlineFolder != null)
         {
-            // No sl.interposer.dll — find the highest-versioned sl.*.dll as version source
+            // No sl.common.dll — find the highest-versioned sl.*.dll as version source
             var bestPath = GetHighestVersionedSlDll(result.StreamlineFolder);
             if (bestPath != null)
             {

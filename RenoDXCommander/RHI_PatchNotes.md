@@ -1,5 +1,5 @@
 
-## v2.6.3-beta
+## v2.6.3
 
 ### New
 
@@ -13,10 +13,22 @@
 - RenoDX cog dialog widened so Compatibility Settings labels no longer truncate.
 - Installing a Neural Rendering method now automatically removes conflicting global addons (DLSS5 Tool, DLSS Tool (ShortFuse)) from the global set and cleans up their files immediately.
 - Neural Rendering auto-select now defaults to ShortFuse (was DLSS5 Tool) for DX12 games with native DLSS.
+- RTX 40 MFG Unlock and MFG Ada Unlock are mutually exclusive — installing one blocks the other.
+- DLSS/Streamline version combo now shows `Default (x.x.x)` as a separate top entry rather than marking a version in the list — you can now select any version including the original without triggering a restore.
+- Streamline version is now read from `sl.common.dll` instead of `sl.interposer.dll`.
+- "ReShade Addons" renamed to "Global Addons" in the Shaders/Addons dropdown.
+- Clicking "Select" in the per-game shader picker while already on Select now re-opens the picker (same behaviour as the addon picker).
 
 ### Bug Fixes
 
+- Fixed NR Cost Scaler and RTX 40 MFG Unlock services not respecting the session-wide GitHub API rate limit flag — they now go through the shared ETag cache.
+- Fixed RenoDX update check HEAD requests hanging the UI for up to 100 seconds when offline or rate-limited — now times out after 10 seconds.
+- Fixed `renodx-dlss.addon64` not being removed when switching per-game addons to Off on games that ship with `nvngx_dlssnr.dll` natively (e.g. Cyberpunk 2077) — the stale-removal guard now correctly distinguishes RHI-placed NR DLLs from game-native ones.
 - Fixed Neural Rendering method auto-select inferring DLSS5 Tool for games that have a backed-up NR DLL but no active install.
+
+### Known Limitations
+
+- DLSS5 Feeder: 32-bit game support not yet implemented.
 
 ### Manifest Updates
 

@@ -17,7 +17,7 @@ public partial class DlssStreamlineService : IDlssStreamlineService
     private const string DlssdDllName = "nvngx_dlssd.dll";
     private const string DlssgDllName = "nvngx_dlssg.dll";
     private const string DlssnrDllName = "nvngx_dlssnr.dll";
-    private const string StreamlineIndicator = "sl.interposer.dll";
+    private const string StreamlineIndicator = "sl.common.dll";
     private const string BackupExtension = ".original";
 
     /// <summary>Known Streamline DLL filenames.</summary>
@@ -224,8 +224,8 @@ public partial class DlssStreamlineService : IDlssStreamlineService
 
     /// <summary>
     /// Returns the path of the sl.*.dll with the highest file version in the given folder,
-    /// excluding sl.interposer.dll (which may be absent in some Streamline builds).
-    /// Used as the version source when sl.interposer.dll is not present.
+    /// excluding sl.common.dll (which is the primary version source).
+    /// Used as the version source when sl.common.dll is not present.
     /// </summary>
     private string? GetHighestVersionedSlDll(string folder)
     {
@@ -501,8 +501,8 @@ public partial class DlssStreamlineService : IDlssStreamlineService
         }
         if (entry.StreamlineFolder != null)
         {
-            var interposerPath = Path.Combine(entry.StreamlineFolder, StreamlineIndicator);
-            var versionSourcePath = File.Exists(interposerPath) ? interposerPath
+            var commonPath = Path.Combine(entry.StreamlineFolder, StreamlineIndicator);
+            var versionSourcePath = File.Exists(commonPath) ? commonPath
                 : GetHighestVersionedSlDll(entry.StreamlineFolder);
 
             if (versionSourcePath != null)
@@ -557,8 +557,10 @@ public partial class DlssStreamlineService : IDlssStreamlineService
         }
         if (result.StreamlineInterposerPath != null && entry.OriginalStreamlineVersion == null)
         {
-            var backup = result.StreamlineInterposerPath + ".original";
-            result.OriginalStreamlineVersion = File.Exists(backup) ? GetFileVersion(backup) : result.StreamlineVersion;
+            var inGameBackup = result.StreamlineInterposerPath + ".original";
+            result.OriginalStreamlineVersion = File.Exists(inGameBackup)
+                ? GetFileVersion(inGameBackup)
+                : result.StreamlineVersion;
             entry.OriginalStreamlineVersion = result.OriginalStreamlineVersion;
             needsSave = true;
         }

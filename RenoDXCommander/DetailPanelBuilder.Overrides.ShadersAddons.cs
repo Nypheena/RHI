@@ -129,7 +129,8 @@ public partial class DetailPanelBuilder
                     _window.Content.XamlRoot,
                     addonPackService,
                     current,
-                    AddonPopupHelper.PopupContext.PerGame);
+                    AddonPopupHelper.PopupContext.PerGame,
+                    ctx.Card.InstallPath);
                 if (result != null)
                 {
                     _gameNameService.PerGameAddonSelection[addonSelKey] = result;

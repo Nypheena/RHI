@@ -96,8 +96,9 @@ public class ModInstallService : IModInstallService
         long? remoteSize = null;
         try
         {
+            using var headCts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(10));
             var headResp = await _http.SendAsync(
-                new HttpRequestMessage(HttpMethod.Head, resolvedUrl));
+                new HttpRequestMessage(HttpMethod.Head, resolvedUrl), headCts.Token);
             if (headResp.IsSuccessStatusCode)
                 remoteSize = headResp.Content.Headers.ContentLength;
         }

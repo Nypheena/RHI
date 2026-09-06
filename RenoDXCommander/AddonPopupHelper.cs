@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using RenoDXCommander.Models;
 using RenoDXCommander.Services;
+using System.IO;
 
 namespace RenoDXCommander;
 
@@ -23,7 +24,8 @@ public static class AddonPopupHelper
         XamlRoot xamlRoot,
         IAddonPackService addonPackService,
         List<string>? currentSelection,
-        PopupContext context)
+        PopupContext context,
+        string? installPath = null)
     {
         var availableAddons = addonPackService.AvailablePacks
             .Where(a => !string.IsNullOrEmpty(a.DownloadUrl)
@@ -162,14 +164,21 @@ public static class AddonPopupHelper
             // Right side: toggle — same behavior as global manager
             bool suppressToggle = false;
 
-            // Determine if this entry is blocked by mutual exclusivity (dlss5 ↔ dlss-sf)
+            // Determine if this entry is blocked by mutual exclusivity (dlss5 ↔ dlss-sf, mfgunlock ↔ RTX40MFG.asi)
             bool isMutuallyExclusive = entry.SectionId.Equals("renodx-dlss5", StringComparison.OrdinalIgnoreCase)
-                                    || entry.SectionId.Equals("renodx-dlss-sf", StringComparison.OrdinalIgnoreCase);
+                                    || entry.SectionId.Equals("renodx-dlss-sf", StringComparison.OrdinalIgnoreCase)
+                                    || entry.SectionId.Equals("mfgunlock", StringComparison.OrdinalIgnoreCase);
             string? mutualExclusivePeer = entry.SectionId.Equals("renodx-dlss5", StringComparison.OrdinalIgnoreCase)
                 ? "DLSS Tool (ShortFuse)"
                 : entry.SectionId.Equals("renodx-dlss-sf", StringComparison.OrdinalIgnoreCase)
                 ? "DLSS5 Tool" : null;
             bool peerIsSelected = mutualExclusivePeer != null && selected.Contains(mutualExclusivePeer);
+
+            // RTX40MFG.asi conflict — MFG Ada Unlock blocked when ASI version is installed
+            bool rtx40MfgConflict = entry.SectionId.Equals("mfgunlock", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(installPath)
+                && File.Exists(Path.Combine(installPath, Rtx40MfgService.AsiFileName));
+            if (rtx40MfgConflict) peerIsSelected = true;
 
             var toggle = new ToggleSwitch
             {
@@ -181,7 +190,9 @@ public static class AddonPopupHelper
                 Opacity = peerIsSelected ? 0.35 : 1.0,
             };
             if (peerIsSelected)
-                ToolTipService.SetToolTip(toggle, $"Disable {mutualExclusivePeer} first to enable this addon.");
+                ToolTipService.SetToolTip(toggle, rtx40MfgConflict
+                    ? "RTX 40 MFG Unlock (ASI) is already installed and conflicts with this addon. Remove it from the Extras section first."
+                    : $"Disable {mutualExclusivePeer} first to enable this addon.");
 
             // Capture for the lambda
             var capturedEntry = entry;

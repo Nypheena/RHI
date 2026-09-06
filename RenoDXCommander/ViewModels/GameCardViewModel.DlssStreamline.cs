@@ -119,15 +119,15 @@ public partial class GameCardViewModel
                 }
             }
 
-            // Fallback: read from interposer path (normal versioned installs)
+            // Fallback: read from sl.common.dll path (normal versioned installs)
             if (string.IsNullOrEmpty(versionFromPath) || versionFromPath == "Unknown")
             {
                 if (DlssDetection.StreamlineInterposerPath != null)
                     versionFromPath = DlssStreamlineService.FormatVersion(service.GetFileVersion(DlssDetection.StreamlineInterposerPath));
             }
 
-            // If the interposer is older than another DLL in the same folder
-            // (e.g. 2.12.128 interposer in a 2.12.129 release), use the highest-versioned DLL.
+            // If sl.common.dll is older than another DLL in the same folder
+            // use the highest-versioned DLL.
             if (!string.IsNullOrEmpty(versionFromPath) && versionFromPath != "Unknown" && folder != null)
             {
                 foreach (var knownDll in DlssStreamlineService.KnownStreamlineDlls)

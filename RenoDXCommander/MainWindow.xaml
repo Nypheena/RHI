@@ -74,7 +74,7 @@
                         <Button.Flyout>
                             <MenuFlyout Placement="Bottom">
                                 <MenuFlyoutItem x:Name="ChooseShadersItem" Text="Global Shaders" Click="ChooseShadersButton_Click"/>
-                                <MenuFlyoutItem x:Name="ReShadeAddonsItem" Text="ReShade Addons" Click="ReShadeAddonsButton_Click"/>
+                                <MenuFlyoutItem x:Name="ReShadeAddonsItem" Text="Global Addons" Click="ReShadeAddonsButton_Click"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>

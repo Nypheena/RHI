@@ -25,13 +25,15 @@ public class Rtx40MfgService
 
     private readonly HttpClient     _http;
     private readonly ICrashReporter _crashReporter;
+    private readonly GitHubETagCache _etagCache;
     private readonly string         _stagingDir;
     private readonly string         _versionFile;
 
-    public Rtx40MfgService(HttpClient http, ICrashReporter crashReporter)
+    public Rtx40MfgService(HttpClient http, ICrashReporter crashReporter, GitHubETagCache etagCache)
     {
         _http          = http;
         _crashReporter = crashReporter;
+        _etagCache     = etagCache;
         _stagingDir    = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "RHI", "rtx40mfg");
@@ -120,12 +122,8 @@ public class Rtx40MfgService
     {
         try
         {
-            var req = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-            req.Headers.Add("User-Agent", "RHI");
-            var resp = await _http.SendAsync(req).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode) return (null, null);
-
-            var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
+            if (json == null) return (null, null);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 

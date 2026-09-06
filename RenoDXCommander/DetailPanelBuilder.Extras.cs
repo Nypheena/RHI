@@ -604,6 +604,8 @@ public partial class DetailPanelBuilder
 
         bool isInstalled = Rtx40MfgService.IsInstalled(installPath);
         bool ualInstalled = !string.IsNullOrEmpty(_window.ViewModel.GetUalInstalledAs(gameName, store));
+        bool addonConflict = !string.IsNullOrEmpty(installPath) &&
+            File.Exists(Path.Combine(installPath, "renodx-mfgunlock.addon64"));
 
         // Status
         string statusText  = isInstalled ? (mfgSvc.StagedVersion ?? "Installed") : "Ready";
@@ -695,6 +697,13 @@ public partial class DetailPanelBuilder
             installBtn.Opacity   = 0.35;
             ToolTipService.SetToolTip(installBtn, "Install ASI Loader first — RTX 40 MFG Unlock requires it");
         }
+        else if (addonConflict)
+        {
+            installBtn.IsEnabled = false;
+            installBtn.Opacity   = 0.35;
+            installBtn.Content   = "Uninstall MFG Ada Unlock first";
+            ToolTipService.SetToolTip(installBtn, "MFG Ada Unlock (addon) is already installed and conflicts with RTX 40 MFG Unlock. Remove it from the addon picker first.");
+        }
         else
         {
             ToolTipService.SetToolTip(installBtn, isInstalled
@@ -720,6 +729,11 @@ public partial class DetailPanelBuilder
                 {
                     _window.ViewModel.SetRtx40MfgInstalled(gameName, true, store);
                     _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+                }
+                else if (!mfgSvc.IsStagingReady)
+                {
+                    installBtn.Content   = "❌ Download failed — try again later";
+                    installBtn.IsEnabled = true;
                 }
                 else
                 {

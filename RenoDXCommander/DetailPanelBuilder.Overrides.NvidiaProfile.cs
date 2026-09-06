@@ -164,7 +164,7 @@ public partial class DetailPanelBuilder
                 {
                     var tc = _window.ViewModel.AllCards.FirstOrDefault(c => c.GameName.Equals(capturedName, StringComparison.OrdinalIgnoreCase));
                     if (tc?.DlssDetection?.DlssPath == null) return;
-                    if (version == "Default") dlssService.Restore(tc.DlssDetection.DlssPath);
+                    if (version.StartsWith("Default", StringComparison.OrdinalIgnoreCase)) dlssService.Restore(tc.DlssDetection.DlssPath);
                     else if (version == "Custom") await dlssService.SwapDlssCustomAsync(tc.DlssDetection.DlssPath);
                     else await dlssService.SwapDlssAsync(tc.DlssDetection.DlssPath, version);
                     tc.RefreshDlssVersions(dlssService);
@@ -189,7 +189,7 @@ public partial class DetailPanelBuilder
                 {
                     var tc = _window.ViewModel.AllCards.FirstOrDefault(c => c.GameName.Equals(capturedName, StringComparison.OrdinalIgnoreCase));
                     if (tc?.DlssDetection?.DlssdPath == null) return;
-                    if (version == "Default") dlssService.Restore(tc.DlssDetection.DlssdPath);
+                    if (version.StartsWith("Default", StringComparison.OrdinalIgnoreCase)) dlssService.Restore(tc.DlssDetection.DlssdPath);
                     else if (version == "Custom") await dlssService.SwapDlssCustomAsync(tc.DlssDetection.DlssdPath);
                     else await dlssService.SwapDlssdAsync(tc.DlssDetection.DlssdPath, version);
                     tc.RefreshDlssVersions(dlssService);
@@ -215,7 +215,7 @@ public partial class DetailPanelBuilder
                 {
                     var tc = _window.ViewModel.AllCards.FirstOrDefault(c => c.GameName.Equals(capturedName, StringComparison.OrdinalIgnoreCase));
                     if (tc?.DlssDetection?.DlssgPath == null) return;
-                    if (version == "Default") dlssService.Restore(tc.DlssDetection.DlssgPath);
+                    if (version.StartsWith("Default", StringComparison.OrdinalIgnoreCase)) dlssService.Restore(tc.DlssDetection.DlssgPath);
                     else if (version == "Custom") await dlssService.SwapDlssCustomAsync(tc.DlssDetection.DlssgPath);
                     else await dlssService.SwapDlssgAsync(tc.DlssDetection.DlssgPath, version);
                     tc.RefreshDlssVersions(dlssService);
@@ -292,7 +292,7 @@ public partial class DetailPanelBuilder
                         var tc = _window.ViewModel.AllCards.FirstOrDefault(c => c.GameName.Equals(capturedName, StringComparison.OrdinalIgnoreCase));
                         nrSelectedVersion = version;
                         if (tc?.DlssDetection?.DlssnrPath == null) return; // no existing file — only track selection, Deploy handles it
-                        if (version == "Default")
+                        if (version.StartsWith("Default", StringComparison.OrdinalIgnoreCase))
                         {
                             dlssService.Restore(tc.DlssDetection.DlssnrPath);
                             // Clean up custom marker on restore
@@ -371,7 +371,7 @@ public partial class DetailPanelBuilder
                     {
                         var destPath = tc.DlssDetection?.DlssnrPath ?? Path.Combine(tc.InstallPath, "nvngx_dlssnr.dll");
                         var isCustom = nrSelectedVersion == "Custom";
-                        var isDefault = nrSelectedVersion == "Default" || string.IsNullOrEmpty(nrSelectedVersion);
+                        var isDefault = nrSelectedVersion.StartsWith("Default", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(nrSelectedVersion);
 
                         if (isCustom)
                         {
@@ -542,7 +542,7 @@ public partial class DetailPanelBuilder
                 {
                     var tc = _window.ViewModel.AllCards.FirstOrDefault(c => c.GameName.Equals(capturedName, StringComparison.OrdinalIgnoreCase));
                     if (tc?.DlssDetection?.StreamlineFolder == null) return;
-                    if (version == "Default") dlssService.RestoreStreamline(tc.DlssDetection.StreamlineFolder);
+                    if (version.StartsWith("Default", StringComparison.OrdinalIgnoreCase)) dlssService.RestoreStreamline(tc.DlssDetection.StreamlineFolder);
                     else if (version == "Custom") await dlssService.SwapStreamlineCustomAsync(tc.DlssDetection.StreamlineFolder);
                     else await dlssService.SwapStreamlineAsync(tc.DlssDetection.StreamlineFolder, version);
                     tc.RefreshDlssVersions(dlssService);

@@ -49,25 +49,21 @@ public partial class DetailPanelBuilder
             string? formattedOriginal = originalVersion != null
                 ? DlssStreamlineService.FormatVersion(originalVersion)
                 : (installedVersion != null ? installedVersion : null);
-            bool defaultInList = false;
 
             foreach (var ver in availableVersions)
-            {
-                if (formattedOriginal != null && (ver.Equals(formattedOriginal, StringComparison.OrdinalIgnoreCase)
-                    || ver.StartsWith(formattedOriginal, StringComparison.OrdinalIgnoreCase)
-                    || formattedOriginal.StartsWith(ver, StringComparison.OrdinalIgnoreCase)))
-                {
-                    items.Add($"{ver} (Default)");
-                    defaultInList = true;
-                }
-                else
-                    items.Add(ver);
-            }
+                items.Add(ver);
             items.Add("Custom");
 
-            // If original version isn't in the managed list, insert it at top with (Default)
-            if (!defaultInList && formattedOriginal != null)
-                items.Insert(0, $"{formattedOriginal} (Default)");
+            // Add a "Default (x.x.x)" entry at the top so the user can restore the original
+            if (formattedOriginal != null)
+            {
+                var defaultLabel = $"Default ({formattedOriginal})";
+                items.Insert(0, defaultLabel);
+            }
+            else
+            {
+                items.Insert(0, "Default");
+            }
         }
 
         // Find selected index based on installed version

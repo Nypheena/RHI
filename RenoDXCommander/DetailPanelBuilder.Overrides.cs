@@ -798,7 +798,7 @@ public partial class DetailPanelBuilder
         {
             if (shaderComboInitializing) return;
             var current = shaderModeCombo.SelectedItem as string;
-            if (current == "Select" && _window.ViewModel.GetPerGameShaderMode(capturedName) == "Select")
+            if (current == "Select" && _window.ViewModel.GetPerGameShaderMode(capturedName, card.Source) == "Select")
             {
                 shaderComboInitializing = true;
                 shaderModeCombo.SelectedItem = "Global";
@@ -837,7 +837,7 @@ public partial class DetailPanelBuilder
                 else
                 {
                     // Cancelled — revert to actual current persisted mode
-                    var currentMode = _window.ViewModel.GetPerGameShaderMode(capturedName);
+                    var currentMode = _window.ViewModel.GetPerGameShaderMode(capturedName, card.Source);
                     var revertTo = currentMode == "Select" ? "Select" : (currentMode == "Off" ? "Off" : (currentMode == "Custom" ? "Custom" : "Global"));
                     shaderComboInitializing = true;
                     shaderModeCombo.SelectedItem = revertTo;
