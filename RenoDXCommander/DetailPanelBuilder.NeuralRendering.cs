@@ -629,6 +629,11 @@ public partial class DetailPanelBuilder
                 {
                     await Task.Run(() =>
                     {
+                        // Uninstall Cost Scaler first (restores _real → nvngx_dlssnr.dll before NR cleanup)
+                        var csSvcSwitch = App.Services.GetRequiredService<DlssNrCostScalerService>();
+                        csSvcSwitch.Uninstall(installPath);
+                        _window.ViewModel.SetNrCostScalerEnabled(gameName, false, store);
+
                         switch (previousKey)
                         {
                             case NrMethodDlss5Tool:
@@ -733,6 +738,14 @@ public partial class DetailPanelBuilder
                         break;
                 }
 
+                // If Cost Scaler preference is On, deploy it now (NR DLL is freshly placed)
+                if (_window.ViewModel.GetNrCostScalerEnabled(gameName, store))
+                {
+                    var csSvc = App.Services.GetRequiredService<DlssNrCostScalerService>();
+                    if (csSvc.IsStagingReady)
+                        csSvc.Install(installPath);
+                }
+
                 // Persist chosen method
                 _window.ViewModel.SetNrMethodOverride(gameName, selKey, store);
 
@@ -789,6 +802,11 @@ public partial class DetailPanelBuilder
             {
                 await Task.Run(() =>
                 {
+                    // Uninstall Cost Scaler first (restores _real → nvngx_dlssnr.dll before NR cleanup)
+                    var csSvcRemove = App.Services.GetRequiredService<DlssNrCostScalerService>();
+                    csSvcRemove.Uninstall(installPath);
+                    _window.ViewModel.SetNrCostScalerEnabled(gameName, false, store);
+
                     switch (selKey)
                     {
                         case NrMethodDlss5Tool:
@@ -877,6 +895,53 @@ public partial class DetailPanelBuilder
         btnRow.Children.Add(removeBtn);
         btnRow.Children.Add(sfCogBtn);
         nrBody.Children.Add(btnRow);
+
+        // ── NR Cost Scaler preference toggle ─────────────────────────────────
+        var costScalerSvc = App.Services.GetRequiredService<DlssNrCostScalerService>();
+        bool costScalerPref = _window.ViewModel.GetNrCostScalerEnabled(gameName, store);
+
+        var costScalerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10,
+            Margin = new Thickness(0, 4, 0, 0) };
+        var costScalerLabel = new TextBlock
+        {
+            Text = "NR Cost Scaler",
+            FontSize = 12,
+            Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        ToolTipService.SetToolTip(costScalerLabel,
+            "When On, installing a Neural Rendering method will also deploy the DLSS NR Cost Scaler proxy. " +
+            "Runs the neural model at reduced resolution (default 75%) for significant GPU savings while keeping native detail.");
+        var costScalerToggle = new ToggleSwitch
+        {
+            IsOn = costScalerPref,
+            OnContent = "On", OffContent = "Off",
+            VerticalAlignment = VerticalAlignment.Center,
+            MinWidth = 0,
+            IsEnabled = costScalerSvc.IsStagingReady,
+            Opacity = costScalerSvc.IsStagingReady ? 1.0 : 0.45,
+        };
+        if (!costScalerSvc.IsStagingReady)
+            ToolTipService.SetToolTip(costScalerToggle, "Cost Scaler not yet staged — will be available after first launch");
+
+        // Installed indicator
+        bool costScalerInstalled = DlssNrCostScalerService.IsInstalled(installPath);
+        var costScalerStatus = new TextBlock
+        {
+            Text = costScalerInstalled ? "Installed" : "",
+            FontSize = 11,
+            Foreground = UIFactory.GetBrush("#5ECB7D"),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        // Toggle saves preference only — never installs or uninstalls
+        costScalerToggle.Toggled += (s, ev) =>
+            _window.ViewModel.SetNrCostScalerEnabled(gameName, costScalerToggle.IsOn, store);
+
+        costScalerRow.Children.Add(costScalerLabel);
+        costScalerRow.Children.Add(costScalerToggle);
+        costScalerRow.Children.Add(costScalerStatus);
+        nrBody.Children.Add(costScalerRow);
 
         // ── How to use links ──────────────────────────────────────────────────
         var linksRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0) };

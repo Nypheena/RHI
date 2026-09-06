@@ -858,6 +858,10 @@ public class AddonPackService : IAddonPackService
                         continue; // ShortFuse NR section manages this — leave it alone
                 }
 
+                // Don't remove dlssnr-companion addon — managed by Cost Scaler, not tracked here
+                if (fileName.Equals(DlssNrCostScalerService.CompanionAddonName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 try
                 {
                     File.Delete(file);

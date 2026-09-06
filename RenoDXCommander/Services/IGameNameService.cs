@@ -163,6 +163,7 @@ public interface IGameNameService
     HashSet<string> SfAutoConfigDisabled { get; }
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Absent = disabled.</summary>
     HashSet<string> SfAutoConfigEnabled { get; }
+    HashSet<string> DlssNrCostScalerEnabled { get; }
 
     // ── Load / Save ───────────────────────────────────────────────────────────
 

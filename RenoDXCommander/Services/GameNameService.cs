@@ -115,6 +115,7 @@ public class GameNameService : IGameNameService
     private HashSet<string> _sfAutoConfigDisabled = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Games where ShortFuse auto-config is ENABLED. Composite-keyed "GameName|Store". Absent = disabled (default).</summary>
     private HashSet<string> _sfAutoConfigEnabled = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _dlssNrCostScalerEnabled = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Maps current (renamed) game name → original store-detected name.</summary>
     private Dictionary<string, string> _originalDetectedNames = new(StringComparer.OrdinalIgnoreCase);
@@ -213,6 +214,7 @@ public class GameNameService : IGameNameService
     public HashSet<string> SfAutoConfigDisabled => _sfAutoConfigDisabled;
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Composite-keyed "GameName|Store". Absent = disabled.</summary>
     public HashSet<string> SfAutoConfigEnabled => _sfAutoConfigEnabled;
+    public HashSet<string> DlssNrCostScalerEnabled => _dlssNrCostScalerEnabled;
 
     public GameNameService(
         IGameDetectionService gameDetectionService,
@@ -570,6 +572,8 @@ public class GameNameService : IGameNameService
             Load<List<string>>("SfAutoConfigDisabled", new()), StringComparer.OrdinalIgnoreCase);
         _sfAutoConfigEnabled = new HashSet<string>(
             Load<List<string>>("SfAutoConfigEnabled", new()), StringComparer.OrdinalIgnoreCase);
+        _dlssNrCostScalerEnabled = new HashSet<string>(
+            Load<List<string>>("DlssNrCostScalerEnabled", new()), StringComparer.OrdinalIgnoreCase);
 
         if (s.TryGetValue("ViewLayout", out var vlVal) && int.TryParse(vlVal, out var vlInt) && Enum.IsDefined(typeof(ViewLayout), vlInt))
             setViewLayout((ViewLayout)vlInt);
@@ -677,6 +681,8 @@ public class GameNameService : IGameNameService
                 if (_ualInstalledAs.Count > 0) s["UalInstalledAs"] = JsonSerializer.Serialize(_ualInstalledAs);
                 if (_sfAutoConfigEnabled.Count > 0) s["SfAutoConfigEnabled"] = JsonSerializer.Serialize(_sfAutoConfigEnabled.ToList());
                 else s.Remove("SfAutoConfigEnabled");
+                if (_dlssNrCostScalerEnabled.Count > 0) s["DlssNrCostScalerEnabled"] = JsonSerializer.Serialize(_dlssNrCostScalerEnabled.ToList());
+                else s.Remove("DlssNrCostScalerEnabled");
                 s.Remove("SfAutoConfigDisabled"); // legacy — no longer written
                 s["ViewLayout"]          = ((int)currentViewLayout).ToString();
                 s["FilterMode"]          = filterMode;
@@ -812,6 +818,7 @@ public class GameNameService : IGameNameService
         MigrateCompositeDict(_ualInstalledAs, oldName, newName);
         MigrateCompositeHashSet(_sfAutoConfigDisabled, oldName, newName);
         MigrateCompositeHashSet(_sfAutoConfigEnabled, oldName, newName);
+        MigrateCompositeHashSet(_dlssNrCostScalerEnabled, oldName, newName);
 
         // Migrate name-only HashSets (shared across stores)
         MigrateHashSet(_wikiExclusions, oldName, newName);

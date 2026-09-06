@@ -532,6 +532,25 @@ public partial class MainViewModel
         SaveNameMappings();
     }
 
+    public bool GetNrCostScalerEnabled(string gameName, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        return _gameNameService.DlssNrCostScalerEnabled.Contains(key)
+            || _gameNameService.DlssNrCostScalerEnabled.Contains(gameName);
+    }
+
+    public void SetNrCostScalerEnabled(string gameName, bool value, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (value) _gameNameService.DlssNrCostScalerEnabled.Add(key);
+        else
+        {
+            _gameNameService.DlssNrCostScalerEnabled.Remove(key);
+            _gameNameService.DlssNrCostScalerEnabled.Remove(gameName);
+        }
+        SaveNameMappings();
+    }
+
     /// <summary>
     /// Post-ShortFuse-install auto-config: renames ReShade → Reshade64.asi,
     /// installs UAL (winmm → version → dinput8 priority), writes [INSTALL] keys to reshade.ini.
@@ -1019,6 +1038,14 @@ public partial class MainViewModel
                 else if (sfInstalled)
                 {
                     // SF was installed but is no longer selected — restore .original files and clean up
+                    // EXCEPT: when the NR section owns this ShortFuse install, leave it alone
+                    var nrMethod = GetNrMethodOverride(gameName, card.Source ?? "");
+                    bool nrOwnsShortFuse = string.Equals(nrMethod, "ShortFuse", StringComparison.OrdinalIgnoreCase);
+                    if (nrOwnsShortFuse)
+                    {
+                        // NR section manages this — do not uninstall
+                    }
+                    else
                     _ = Task.Run(() =>
                     {
                         try
