@@ -699,6 +699,9 @@
     },
     "VHOLUME": {
       "hdr": false
+    },
+    "Eternal Strands": {
+      "hdr": false
     }
   },
   "ueExtendedGames": [
@@ -893,6 +896,10 @@
     },
     "VHOLUME": {
       "Set_Path": "1"
+    },
+    "Eternal Strands": {
+      "Set_Path": "1",
+      "Upgrade_R10G10B10A2_UNORM": "1"
     }
   },
   "legacyReShadeVersions": {
