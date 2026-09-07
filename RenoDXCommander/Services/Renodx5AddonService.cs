@@ -506,12 +506,16 @@ public class Renodx5AddonService
 
             if (downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                var tempZip = Path.Combine(_stagingDir, "_dl_tmp.zip");
+                // Use a variant-specific temp filename to avoid races between concurrent downloads
+                var tempZip = Path.Combine(_stagingDir, $"_dl_tmp_{Path.GetFileNameWithoutExtension(stagedFileName)}.zip");
                 await File.WriteAllBytesAsync(tempZip, bytes).ConfigureAwait(false);
                 using (var zip = System.IO.Compression.ZipFile.OpenRead(tempZip))
                 {
+                    // Try exact filename first, then fall back to any .addon64 entry
                     var entry = zip.Entries.FirstOrDefault(e =>
-                        string.Equals(e.Name, stagedFileName, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(e.Name, stagedFileName, StringComparison.OrdinalIgnoreCase))
+                        ?? zip.Entries.FirstOrDefault(e =>
+                        e.Name.EndsWith(".addon64", StringComparison.OrdinalIgnoreCase));
                     if (entry == null)
                     {
                         _crashReporter.Log($"[Renodx5AddonService] '{stagedFileName}' not found in zip");

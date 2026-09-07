@@ -7,6 +7,9 @@
 - Fixed Recent Games Off setting not hiding games from the system tray right-click menu — all call sites now pass an empty list when the setting is off.
 - Fixed Recent Games Off setting not clearing the taskbar jump list — jump list now uses `ICustomDestinationList` instead of `SHAddToRecentDocs`, giving RHI full control to clear it when the setting is toggled off.
 - Fixed reinstalling ASI Loader with a different DLL name leaving the old DLL behind — the previous install is now cleaned up (and any Hooked backup restored) before deploying under the new name.
+- Fixed ShortFuse DLSS Tool download failing with "file in use" when both DLSS5 variants download concurrently — each variant now uses its own temp filename.
+- Fixed ShortFuse DLSS Tool zip extraction failing when the addon file inside the zip doesn't match the expected exact filename — falls back to any `.addon64` entry in the zip.
+- Fixed OptiScaler install/uninstall status messages appearing in the Components section — suppressed there since OptiScaler is in the Extras section.
 
 ---
 

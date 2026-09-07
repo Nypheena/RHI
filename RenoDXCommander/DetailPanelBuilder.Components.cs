@@ -533,10 +533,9 @@ public partial class DetailPanelBuilder
         _window.DetailDcMessage.Text = card.DcActionMessage;
         _window.DetailDcMessage.Foreground = UIFactory.GetBrush(GetMessageColor(card.DcActionMessage));
         _window.DetailOsProgress.Visibility = card.OsRowVisibility == Visibility.Visible ? card.OsProgressVisibility : Visibility.Collapsed;
-        _window.DetailOsProgress.Value = card.OsProgress;
-        _window.DetailOsMessage.Visibility = card.OsRowVisibility == Visibility.Visible ? card.OsMessageVisibility : Visibility.Collapsed;
-        _window.DetailOsMessage.Text = card.OsActionMessage;
-        _window.DetailOsMessage.Foreground = UIFactory.GetBrush(GetMessageColor(card.OsActionMessage));
+        // OptiScaler message lives in the Extras section — suppress it from Components
+        _window.DetailOsProgress.Visibility = Visibility.Collapsed;
+        _window.DetailOsMessage.Visibility  = Visibility.Collapsed;
         _window.DetailDofFixProgress.Visibility = card.DofFixRowVisibility == Visibility.Visible ? card.DofFixProgressVisibility : Visibility.Collapsed;
         _window.DetailDofFixProgress.Value = card.DofFixProgress;
         _window.DetailDofFixMessage.Visibility = card.DofFixRowVisibility == Visibility.Visible ? card.DofFixMessageVisibility : Visibility.Collapsed;
