@@ -872,16 +872,21 @@ public partial class MainViewModel
             bool deployHdr = compatEntry?.Hdr ?? !isUe4Game;  // compat overrides; else UE4=false, UE5=true
             bool deployLut = compatEntry?.Lut ?? true;         // compat overrides; else always true
 
-            if (card.UseUeExtended && record.EngineIniHdr != false && deployHdr)
-            {
-                // Check for a custom Engine.ini file override in the manifest
-                string? engineIniFilename = null;
-                _manifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilename);
+            // Custom Engine.ini file overrides the standard HDR keys entirely — applied regardless of deployHdr
+            string? engineIniFilename = null;
+            _manifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilename);
 
-                if (!string.IsNullOrEmpty(engineIniFilename))
-                    await AuxInstallService.ApplyEngineIniFromFileAsync(_http, engineIniFilename, card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source).ConfigureAwait(false);
-                else
-                    AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
+            if (card.UseUeExtended && !string.IsNullOrEmpty(engineIniFilename))
+            {
+                await AuxInstallService.ApplyEngineIniFromFileAsync(_http, engineIniFilename, card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source).ConfigureAwait(false);
+                // Custom file manages Engine.ini — mark standard HDR/LUT as off so cog reflects reality
+                record.EngineIniHdr = false;
+                record.EngineIniLut = false;
+                _installer.SaveRecordPublic(record);
+            }
+            else if (card.UseUeExtended && record.EngineIniHdr != false && deployHdr)
+            {
+                AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
             }
             else if (card.UseUeExtended && !deployHdr)
             {

@@ -291,15 +291,18 @@ public partial class MainViewModel
                 bool deployHdr  = compatEntry?.Hdr ?? !isUe4Game;
                 bool deployLut  = compatEntry?.Lut ?? true;
 
-                if (card.UseUeExtended && record.EngineIniHdr != false && deployHdr)
+                string? engineIniFilename = null;
+                _manifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilename);
+
+                if (card.UseUeExtended && !string.IsNullOrEmpty(engineIniFilename))
                 {
-                    string? engineIniFilename = null;
-                    _manifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilename);
-                    if (!string.IsNullOrEmpty(engineIniFilename))
-                        await AuxInstallService.ApplyEngineIniFromFileAsync(_http, engineIniFilename, card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source).ConfigureAwait(false);
-                    else
-                        AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
+                    await AuxInstallService.ApplyEngineIniFromFileAsync(_http, engineIniFilename, card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source).ConfigureAwait(false);
+                    record.EngineIniHdr = false;
+                    record.EngineIniLut = false;
+                    App.Services.GetRequiredService<IModInstallService>().SaveRecordPublic(record);
                 }
+                else if (card.UseUeExtended && record.EngineIniHdr != false && deployHdr)
+                    AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
 
                 if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLut)
                     AuxInstallService.ApplyEngineIniLutSetting(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
