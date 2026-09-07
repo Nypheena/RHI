@@ -1,4 +1,14 @@
 
+## v2.6.5
+
+### Bug Fixes
+
+- Fixed OptiScaler install and uninstall not refreshing the Extras section — the installed/uninstalled state now updates immediately without needing a manual refresh.
+- Fixed DLL naming override toggle requiring a refresh to interact with after enabling or disabling — the overrides panel now rebuilds immediately after the toggle operation completes.
+- Fixed RTX 40 MFG Unlock not writing the UAL ini file (`version.ini`, `dinput8.ini`, etc.) on install — without it, UAL didn't know to load `RTX40MFG.asi` and ReShade would stop working. RHI now writes the required `[GlobalSets]` keys to the matching UAL proxy ini file automatically.
+
+---
+
 ## v2.6.4
 
 ### Changes

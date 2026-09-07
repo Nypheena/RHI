@@ -124,7 +124,7 @@ public partial class MainViewModel
                         if (_rtx40MfgService.IsStagingReady)
                             foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
                                 && Rtx40MfgService.IsInstalled(c.InstallPath)))
-                                _rtx40MfgService.Install(c.InstallPath);
+                                _rtx40MfgService.Install(c.InstallPath, GetUalInstalledAs(c.GameName, c.Source ?? ""));
                     }
                 }
                 catch (Exception ex) { _crashReporter.Log($"[MainViewModel] Periodic RTX40MFG check failed — {ex.Message}"); }

@@ -382,7 +382,7 @@ public partial class MainViewModel
                         foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
                             && Rtx40MfgService.IsInstalled(c.InstallPath)
                             && _rtx40MfgService.HasUpdate))
-                            _rtx40MfgService.Install(c.InstallPath);
+                            _rtx40MfgService.Install(c.InstallPath, GetUalInstalledAs(c.GameName, c.Source ?? ""));
                 }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Cost Scaler/RTX40MFG auto-deploy failed — {ex.Message}"); }
 

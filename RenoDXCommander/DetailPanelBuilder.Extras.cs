@@ -722,7 +722,8 @@ public partial class DetailPanelBuilder
                 {
                     if (!mfgSvc.IsStagingReady || mfgSvc.HasUpdate)
                         await mfgSvc.EnsureStagingAsync().ConfigureAwait(false);
-                    return mfgSvc.Install(installPath);
+                    var ualProxy = _window.ViewModel.GetUalInstalledAs(gameName, store);
+                    return mfgSvc.Install(installPath, ualProxy);
                 });
 
                 if (ok)

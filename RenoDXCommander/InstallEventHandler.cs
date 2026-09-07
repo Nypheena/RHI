@@ -306,6 +306,7 @@ public class InstallEventHandler
         finally
         {
             card.OsIsInstalling = false;
+            _window.DispatcherQueue?.TryEnqueue(() => _window.PopulateDetailPanel(card));
         }
     }
 
@@ -372,6 +373,8 @@ public class InstallEventHandler
         {
             card.OsActionMessage = $"❌ Uninstall failed: {ex.Message}";
         }
+
+        _window.DispatcherQueue?.TryEnqueue(() => _window.PopulateDetailPanel(card));
     }
 
     public void CopyOsIniButton_Click(object sender, RoutedEventArgs e)

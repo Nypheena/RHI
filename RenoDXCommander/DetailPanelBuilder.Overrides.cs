@@ -571,6 +571,7 @@ public partial class DetailPanelBuilder
             }
 
             dllOverrideToggle.IsEnabled = true;
+            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
         };
 
         // ── Auto-save: DC name box on dropdown selection (with foreign DLL check) ──

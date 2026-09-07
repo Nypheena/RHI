@@ -168,7 +168,7 @@ public class Rtx40MfgService
 
     // ── Install ───────────────────────────────────────────────────────────────
 
-    public bool Install(string installPath)
+    public bool Install(string installPath, string? ualProxyName = null)
     {
         if (string.IsNullOrEmpty(installPath) || !IsStagingReady) return false;
 
@@ -181,6 +181,11 @@ public class Rtx40MfgService
                 var dest = Path.Combine(installPath, file);
                 File.Copy(src, dest, overwrite: true);
             }
+
+            // Write UAL ini file so the ASI loads correctly
+            if (!string.IsNullOrEmpty(ualProxyName))
+                WriteUalIni(installPath, ualProxyName);
+
             _crashReporter.Log($"[Rtx40MfgService.Install] Deployed to '{installPath}'");
             return true;
         }
@@ -188,6 +193,69 @@ public class Rtx40MfgService
         {
             _crashReporter.Log($"[Rtx40MfgService.Install] Failed — {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Writes (or merges) the UAL ini file required for RTX40MFG.asi to load correctly.
+    /// The ini filename matches the UAL proxy DLL name (e.g. version.dll → version.ini).
+    /// Keys written: LoadPlugins=1, LoadFromScriptsOnly=1, LoadExtraPlugins=RTX40MFG.asi
+    /// Only adds missing keys — never removes existing ones.
+    /// </summary>
+    public void WriteUalIni(string installPath, string ualProxyName)
+    {
+        try
+        {
+            var iniName = Path.GetFileNameWithoutExtension(ualProxyName) + ".ini";
+            var iniPath = Path.Combine(installPath, iniName);
+
+            var lines = File.Exists(iniPath)
+                ? File.ReadAllLines(iniPath).ToList()
+                : new List<string>();
+
+            // Find or create [GlobalSets] section
+            int sectionIdx = -1;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (lines[i].Trim().Equals("[GlobalSets]", StringComparison.OrdinalIgnoreCase))
+                { sectionIdx = i; break; }
+            }
+            if (sectionIdx < 0)
+            {
+                if (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[^1]))
+                    lines.Add("");
+                lines.Add("[GlobalSets]");
+                sectionIdx = lines.Count - 1;
+            }
+
+            // Find end of [GlobalSets] section
+            int insertAt = sectionIdx + 1;
+            while (insertAt < lines.Count && !lines[insertAt].TrimStart().StartsWith("["))
+                insertAt++;
+
+            // Keys to ensure exist
+            var required = new (string Key, string Value)[]
+            {
+                ("LoadPlugins", "1"),
+                ("LoadFromScriptsOnly", "1"),
+                ("LoadExtraPlugins", AsiFileName),
+                ("DontLoadFromDllMain", "0"),
+                ("ForceEntryPointHook", "0"),
+            };
+
+            foreach (var (key, value) in required.Reverse())
+            {
+                bool exists = lines.Any(l => l.TrimStart().StartsWith(key + "=", StringComparison.OrdinalIgnoreCase));
+                if (!exists)
+                    lines.Insert(insertAt, $"{key}={value}");
+            }
+
+            File.WriteAllLines(iniPath, lines);
+            _crashReporter.Log($"[Rtx40MfgService.WriteUalIni] Wrote '{iniName}' in '{installPath}'");
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[Rtx40MfgService.WriteUalIni] Failed — {ex.Message}");
         }
     }
 
