@@ -127,7 +127,7 @@ public partial class MainViewModel
             var nrCostScalerTask = Task.Run(async () => {
                 try
                 {
-                    await _nrCostScalerService.CheckForUpdateAsync();
+                    await _nrCostScalerService.CheckForUpdateAsync(forceRefresh: true);
                     if (!_nrCostScalerService.IsStagingReady || _nrCostScalerService.HasUpdate)
                         await _nrCostScalerService.EnsureStagingAsync();
                 }
@@ -136,7 +136,7 @@ public partial class MainViewModel
             var rtx40MfgTask = Task.Run(async () => {
                 try
                 {
-                    await _rtx40MfgService.CheckForUpdateAsync();
+                    await _rtx40MfgService.CheckForUpdateAsync(forceRefresh: true);
                     if (!_rtx40MfgService.IsStagingReady || _rtx40MfgService.HasUpdate)
                         await _rtx40MfgService.EnsureStagingAsync();
                 }
@@ -369,6 +369,22 @@ public partial class MainViewModel
                 // Silent component auto-update (runs after update check flags pending updates)
                 try { _autoUpdateService.TriggerAsync(); }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Component auto-update trigger failed — {ex.Message}"); }
+
+                // Auto-deploy Cost Scaler + RTX40MFG to installed games now that _allCards is populated
+                try
+                {
+                    if (_nrCostScalerService.IsStagingReady)
+                        foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
+                            && DlssNrCostScalerService.IsInstalled(c.InstallPath)
+                            && _nrCostScalerService.HasUpdate))
+                            _nrCostScalerService.Install(c.InstallPath);
+                    if (_rtx40MfgService.IsStagingReady)
+                        foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
+                            && Rtx40MfgService.IsInstalled(c.InstallPath)
+                            && _rtx40MfgService.HasUpdate))
+                            _rtx40MfgService.Install(c.InstallPath);
+                }
+                catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Cost Scaler/RTX40MFG auto-deploy failed — {ex.Message}"); }
 
                 // Start periodic update check timer (fires every 4h while app is running)
                 StartPeriodicUpdateCheckTimer();

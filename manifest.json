@@ -702,6 +702,10 @@
     },
     "Eternal Strands": {
       "hdr": false
+    },
+    "Black Myth: Wukong": {
+      "hdr": false,
+      "lut": false
     }
   },
   "ueExtendedGames": [
@@ -901,6 +905,9 @@
       "Set_Path": "1",
       "Upgrade_R10G10B10A2_UNORM": "1"
     }
+  },
+  "engineIniFiles": {
+    "Black Myth: Wukong": "black-myth-wukong.ini"
   },
   "legacyReShadeVersions": {
     "Max Payne 3": "6.4.1"

@@ -18,7 +18,8 @@ public partial class DetailPanelBuilder
         (string Name, uint Value)[]? presets, uint currentPreset,
         Func<string, Task> onVersionSelected, Action<uint>? onPresetSelected,
         uint currentRenderScale = 0, Action<uint>? onRenderScaleSelected = null,
-        string? originalVersion = null, bool driverOverrideActive = false)
+        string? originalVersion = null, bool driverOverrideActive = false,
+        Action<bool>? onDriverOverrideToggled = null)
     {
         var col = new StackPanel { Spacing = 4, Opacity = isPresent ? 1.0 : 0.4 };
 
@@ -33,13 +34,13 @@ public partial class DetailPanelBuilder
         // Version ComboBox
         var versionLabel = new TextBlock { Text = "Version", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Thickness(0, 2, 0, 0) };
         if (driverOverrideActive)
-            ToolTipService.SetToolTip(versionLabel, "Driver override is active — the NVIDIA driver is injecting its own DLL. Disable 'Latest DLL' in NVIDIA App or Profile Inspector to manage versions manually.");
+            ToolTipService.SetToolTip(versionLabel, "NVIDIA Override is active — the driver is injecting its own DLL for this game.");
         col.Children.Add(versionLabel);
 
         // Build items list with (Default) marker on the game's original/default version
         var items = new List<string>();
 
-        if (!isPresent && installedVersion == null)
+        if (!isPresent && installedVersion == null && onDriverOverrideToggled == null)
         {
             // Game truly doesn't have this component — show "None"
             items.Add("None");
@@ -64,15 +65,25 @@ public partial class DetailPanelBuilder
             {
                 items.Insert(0, "Default");
             }
+
+            // "NVIDIA Override" as a selectable option when the caller supports it
+            if (onDriverOverrideToggled != null)
+                items.Add("NVIDIA Override");
         }
 
-        // Find selected index based on installed version
+        // Find selected index based on installed version (or NVIDIA Override if active)
         int selectedIndex = 0;
-        if (installedVersion != null && isPresent)
+        if (driverOverrideActive && onDriverOverrideToggled != null)
+        {
+            // Select the "NVIDIA Override" entry at the end of the list
+            selectedIndex = items.Count - 1;
+        }
+        else if (installedVersion != null && (isPresent || onDriverOverrideToggled != null))
         {
             if (installedVersion.Equals("Custom", StringComparison.OrdinalIgnoreCase))
             {
-                selectedIndex = items.Count - 1;
+                // "Custom" is second-to-last (before "NVIDIA Override" if present)
+                selectedIndex = onDriverOverrideToggled != null ? items.Count - 2 : items.Count - 1;
             }
             else
             {
@@ -94,7 +105,7 @@ public partial class DetailPanelBuilder
                 // Insert it before "Custom" so it shows correctly rather than falling back to (Default)
                 if (!matched)
                 {
-                    var insertIdx = items.Count - 1; // before "Custom"
+                    var insertIdx = onDriverOverrideToggled != null ? items.Count - 2 : items.Count - 1; // before Custom / NVIDIA Override
                     items.Insert(insertIdx, installedVersion);
                     selectedIndex = insertIdx;
                 }
@@ -103,17 +114,14 @@ public partial class DetailPanelBuilder
 
         var versionCombo = new ComboBox
         {
-            ItemsSource = driverOverrideActive ? new List<string> { "Driver Override Active" } : items,
-            SelectedIndex = driverOverrideActive ? 0 : selectedIndex,
+            ItemsSource = items,
+            SelectedIndex = selectedIndex,
             FontSize = 11,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            IsEnabled = isPresent && !driverOverrideActive,
-            Opacity = driverOverrideActive ? 0.4 : 1.0,
+            IsEnabled = isPresent || (onDriverOverrideToggled != null),
+            Opacity = 1.0,
         };
-        if (driverOverrideActive)
-            ToolTipService.SetToolTip(versionCombo, "Driver override is active — disable it in NVIDIA App or Profile Inspector to manage this DLL in RHI.");
 
-        // When driver override is active, tooltip is already on the combo — no extra text needed
         col.Children.Add(versionCombo);
 
         bool versionInit = true;
@@ -123,18 +131,29 @@ public partial class DetailPanelBuilder
             var selected = versionCombo.SelectedItem as string;
             if (string.IsNullOrEmpty(selected)) return;
 
+            if (selected == "NVIDIA Override")
+            {
+                // Enable driver DLL override — no DLL swap needed
+                onDriverOverrideToggled?.Invoke(true);
+                return;
+            }
+
+            // If we were on NVIDIA Override and switched away, disable it first
+            if (driverOverrideActive || (ev.RemovedItems.Count > 0 && ev.RemovedItems[0] as string == "NVIDIA Override"))
+                onDriverOverrideToggled?.Invoke(false);
+
             versionCombo.IsEnabled = false;
             try
             {
                 // If it's the (Default) item, treat as "Default" (restore original)
-                if (selected.EndsWith(" (Default)"))
+                if (selected.StartsWith("Default", StringComparison.OrdinalIgnoreCase))
                     await onVersionSelected("Default");
                 else
                     await onVersionSelected(selected);
             }
             finally
             {
-                versionCombo.IsEnabled = isPresent && !driverOverrideActive;
+                versionCombo.IsEnabled = isPresent || (onDriverOverrideToggled != null);
             }
         };
         versionInit = false;

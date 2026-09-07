@@ -100,6 +100,35 @@ public partial class MainViewModel
                 try { await _dlssStreamlineService.FetchManifestAsync(); }
                 catch (Exception ex) { _crashReporter.Log($"[MainViewModel] Periodic DLSS manifest fetch failed — {ex.Message}"); }
 
+                // Check and re-stage Cost Scaler + RTX40MFG, auto-deploy to installed games
+                try
+                {
+                    await _nrCostScalerService.CheckForUpdateAsync(forceRefresh: true);
+                    if (_nrCostScalerService.HasUpdate)
+                    {
+                        await _nrCostScalerService.EnsureStagingAsync();
+                        if (_nrCostScalerService.IsStagingReady)
+                            foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
+                                && DlssNrCostScalerService.IsInstalled(c.InstallPath)))
+                                _nrCostScalerService.Install(c.InstallPath);
+                    }
+                }
+                catch (Exception ex) { _crashReporter.Log($"[MainViewModel] Periodic NR Cost Scaler check failed — {ex.Message}"); }
+
+                try
+                {
+                    await _rtx40MfgService.CheckForUpdateAsync(forceRefresh: true);
+                    if (_rtx40MfgService.HasUpdate)
+                    {
+                        await _rtx40MfgService.EnsureStagingAsync();
+                        if (_rtx40MfgService.IsStagingReady)
+                            foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
+                                && Rtx40MfgService.IsInstalled(c.InstallPath)))
+                                _rtx40MfgService.Install(c.InstallPath);
+                    }
+                }
+                catch (Exception ex) { _crashReporter.Log($"[MainViewModel] Periodic RTX40MFG check failed — {ex.Message}"); }
+
                 _forceUpdateCheck = true; // bypass cooldown since we ARE the cooldown
                 var records = _installer.LoadAll();
                 var auxRecords = _auxInstaller.LoadAll();

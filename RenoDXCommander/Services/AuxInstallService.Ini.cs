@@ -1652,4 +1652,123 @@ public partial class AuxInstallService
             CrashReporter.Log($"[AuxInstallService.RemoveLumaReshadeIniValue] Failed for '{gameDir}' — {ex.Message}");
         }
     }
+
+    // ── Engine.ini file override (fetched from GitHub) ────────────────────────
+
+    private const string EngineIniFilesBaseUrl = "https://raw.githubusercontent.com/RankFTW/rhi-repo/main/engine-files/";
+    private static readonly string EngineIniFilesCacheDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RHI", "engine-files");
+
+    /// <summary>
+    /// Fetches a custom Engine.ini file from the rhi-repo engine-files/ folder.
+    /// Caches to disk at %LocalAppData%\RHI\engine-files\{filename} for the session.
+    /// Returns null on failure — callers should fall back to ApplyEngineIniHdrSettings.
+    /// </summary>
+    public static async Task<string?> FetchEngineIniFileAsync(HttpClient http, string filename)
+    {
+        try
+        {
+            Directory.CreateDirectory(EngineIniFilesCacheDir);
+            var cachePath = Path.Combine(EngineIniFilesCacheDir, filename);
+            var url = EngineIniFilesBaseUrl + Uri.EscapeDataString(filename);
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var response = await http.GetAsync(url, cts.Token).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                CrashReporter.Log($"[AuxInstallService.FetchEngineIniFileAsync] HTTP {(int)response.StatusCode} for '{filename}'");
+                // Return cached version if available
+                if (File.Exists(cachePath)) return await File.ReadAllTextAsync(cachePath).ConfigureAwait(false);
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+            await File.WriteAllTextAsync(cachePath, content).ConfigureAwait(false);
+            CrashReporter.Log($"[AuxInstallService.FetchEngineIniFileAsync] Fetched '{filename}' ({content.Length} chars)");
+            return content;
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[AuxInstallService.FetchEngineIniFileAsync] Failed for '{filename}' — {ex.Message}");
+            // Try disk cache as fallback
+            try
+            {
+                var cachePath = Path.Combine(EngineIniFilesCacheDir, filename);
+                if (File.Exists(cachePath)) return await File.ReadAllTextAsync(cachePath).ConfigureAwait(false);
+            }
+            catch { }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Parses a raw Engine.ini text into (Section, Key, Value) tuples.
+    /// Handles standard INI format: [SectionName] headers and Key=Value lines.
+    /// Blank lines and lines starting with ; or // are ignored.
+    /// </summary>
+    public static List<(string Section, string Key, string Value)> ParseEngineIniEntries(string iniText)
+    {
+        var result = new List<(string Section, string Key, string Value)>();
+        var currentSection = "SystemSettings"; // default section if file starts without a header
+
+        foreach (var rawLine in iniText.Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrEmpty(line) || line.StartsWith(';') || line.StartsWith("//"))
+                continue;
+
+            if (line.StartsWith('[') && line.Contains(']'))
+            {
+                var end = line.IndexOf(']');
+                currentSection = line[1..end].Trim();
+                continue;
+            }
+
+            var eq = line.IndexOf('=');
+            if (eq <= 0) continue;
+
+            var key   = line[..eq].Trim();
+            var value = line[(eq + 1)..].Trim();
+            if (!string.IsNullOrEmpty(key))
+                result.Add((currentSection, key, value));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Fetches a custom Engine.ini file and merges it into the game's Engine.ini.
+    /// Uses the same section-aware merge algorithm as ApplyEngineIniCustomKeys.
+    /// Falls back to ApplyEngineIniHdrSettings on any fetch/parse failure.
+    /// Returns true if the custom file was applied, false if fallback was used.
+    /// </summary>
+    public static async Task<bool> ApplyEngineIniFromFileAsync(
+        HttpClient http,
+        string filename,
+        string installPath,
+        string? projectNameOverride = null,
+        string? gameName = null,
+        string? store = null)
+    {
+        var content = await FetchEngineIniFileAsync(http, filename).ConfigureAwait(false);
+        if (content == null)
+        {
+            CrashReporter.Log($"[AuxInstallService.ApplyEngineIniFromFileAsync] Fetch failed for '{filename}', falling back to standard HDR keys");
+            ApplyEngineIniHdrSettings(installPath, projectNameOverride, gameName, store);
+            return false;
+        }
+
+        var entries = ParseEngineIniEntries(content);
+        if (entries.Count == 0)
+        {
+            CrashReporter.Log($"[AuxInstallService.ApplyEngineIniFromFileAsync] No entries parsed from '{filename}', falling back");
+            ApplyEngineIniHdrSettings(installPath, projectNameOverride, gameName, store);
+            return false;
+        }
+
+        ApplyEngineIniCustomKeys(installPath, entries, projectNameOverride, gameName, store);
+        CrashReporter.Log($"[AuxInstallService.ApplyEngineIniFromFileAsync] Applied {entries.Count} key(s) from '{filename}' to '{gameName ?? installPath}'");
+        return true;
+    }
 }

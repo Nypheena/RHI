@@ -121,6 +121,12 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private uint _defaultNrPreset = 0;
     [ObservableProperty] private uint _defaultSrRenderScale = 0;
     [ObservableProperty] private uint _defaultRrRenderScale = 0;
+    /// <summary>When true, Quick Apply / Batch Deploy will enable the NVIDIA driver DLL override for DLSS SR.</summary>
+    [ObservableProperty] private bool _defaultSrDriverOverride = false;
+    /// <summary>When true, Quick Apply / Batch Deploy will enable the NVIDIA driver DLL override for DLSS RR.</summary>
+    [ObservableProperty] private bool _defaultRrDriverOverride = false;
+    /// <summary>When true, Quick Apply / Batch Deploy will enable the NVIDIA driver DLL override for DLSS FG.</summary>
+    [ObservableProperty] private bool _defaultFgDriverOverride = false;
 
     /// <summary>
     /// Optional callback invoked after any settings-specific property changes,
@@ -351,6 +357,9 @@ public partial class SettingsViewModel : ObservableObject
         if (s.TryGetValue("DefaultNrPreset", out var dnrp) && uint.TryParse(dnrp, out var dnrpVal)) DefaultNrPreset = dnrpVal;
         if (s.TryGetValue("DefaultSrRenderScale", out var dsr) && uint.TryParse(dsr, out var dsrVal)) DefaultSrRenderScale = dsrVal;
         if (s.TryGetValue("DefaultRrRenderScale", out var drr) && uint.TryParse(drr, out var drrVal)) DefaultRrRenderScale = drrVal;
+        if (s.TryGetValue("DefaultSrDriverOverride", out var dsdo)) DefaultSrDriverOverride = dsdo == "1";
+        if (s.TryGetValue("DefaultRrDriverOverride", out var drdo)) DefaultRrDriverOverride = drdo == "1";
+        if (s.TryGetValue("DefaultFgDriverOverride", out var dfdo)) DefaultFgDriverOverride = dfdo == "1";
 
         // Digital Vibrance per-display settings
         if (s.TryGetValue("DigitalVibrance", out var dvcVal))
@@ -478,6 +487,9 @@ public partial class SettingsViewModel : ObservableObject
         else s.Remove("DefaultSrRenderScale");
         if (DefaultRrRenderScale != 0) s["DefaultRrRenderScale"] = DefaultRrRenderScale.ToString();
         else s.Remove("DefaultRrRenderScale");
+        if (DefaultSrDriverOverride) s["DefaultSrDriverOverride"] = "1"; else s.Remove("DefaultSrDriverOverride");
+        if (DefaultRrDriverOverride) s["DefaultRrDriverOverride"] = "1"; else s.Remove("DefaultRrDriverOverride");
+        if (DefaultFgDriverOverride) s["DefaultFgDriverOverride"] = "1"; else s.Remove("DefaultFgDriverOverride");
 
         // Digital Vibrance per-display settings
         if (DigitalVibranceSettings.Count > 0)

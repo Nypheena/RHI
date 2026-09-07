@@ -292,7 +292,14 @@ public partial class MainViewModel
                 bool deployLut  = compatEntry?.Lut ?? true;
 
                 if (card.UseUeExtended && record.EngineIniHdr != false && deployHdr)
-                    AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
+                {
+                    string? engineIniFilename = null;
+                    _manifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilename);
+                    if (!string.IsNullOrEmpty(engineIniFilename))
+                        await AuxInstallService.ApplyEngineIniFromFileAsync(_http, engineIniFilename, card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source).ConfigureAwait(false);
+                    else
+                        AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
+                }
 
                 if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLut)
                     AuxInstallService.ApplyEngineIniLutSetting(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);

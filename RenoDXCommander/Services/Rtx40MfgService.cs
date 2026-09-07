@@ -107,9 +107,9 @@ public class Rtx40MfgService
         }
     }
 
-    public async Task CheckForUpdateAsync()
+    public async Task CheckForUpdateAsync(bool forceRefresh = false)
     {
-        var (version, _) = await FetchLatestReleaseInfoAsync().ConfigureAwait(false);
+        var (version, _) = await FetchLatestReleaseInfoAsync(forceRefresh).ConfigureAwait(false);
         if (string.IsNullOrEmpty(version)) return;
 
         LatestVersion = version;
@@ -118,11 +118,27 @@ public class Rtx40MfgService
         _crashReporter.Log($"[Rtx40MfgService.CheckForUpdate] Cached={current ?? "(none)"}, Remote={version}, HasUpdate={HasUpdate}");
     }
 
-    private async Task<(string? version, string? downloadUrl)> FetchLatestReleaseInfoAsync()
+    private async Task<(string? version, string? downloadUrl)> FetchLatestReleaseInfoAsync(bool forceRefresh = false)
     {
         try
         {
-            var json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
+            string? json;
+            if (forceRefresh)
+            {
+                var req = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
+                req.Headers.Add("User-Agent", "RHI");
+                var resp = await _http.SendAsync(req).ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    _crashReporter.Log($"[Rtx40MfgService.FetchRelease] HTTP {(int)resp.StatusCode}");
+                    return (null, null);
+                }
+                json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                json = await _etagCache.GetWithETagAsync(_http, GitHubApiUrl).ConfigureAwait(false);
+            }
             if (json == null) return (null, null);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;

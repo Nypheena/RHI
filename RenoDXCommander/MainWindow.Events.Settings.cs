@@ -177,7 +177,8 @@ public sealed partial class MainWindow
         bool hasAny = !string.IsNullOrEmpty(s.DefaultDlssVersion) || !string.IsNullOrEmpty(s.DefaultDlssdVersion)
             || !string.IsNullOrEmpty(s.DefaultDlssgVersion) || !string.IsNullOrEmpty(s.DefaultStreamlineVersion)
             || s.DefaultSrPreset != 0 || s.DefaultRrPreset != 0 || s.DefaultFgPreset != 0
-            || s.DefaultSrRenderScale != 0 || s.DefaultRrRenderScale != 0;
+            || s.DefaultSrRenderScale != 0 || s.DefaultRrRenderScale != 0
+            || s.DefaultSrDriverOverride || s.DefaultRrDriverOverride || s.DefaultFgDriverOverride;
 
         if (!hasAny)
         {
@@ -202,7 +203,8 @@ public sealed partial class MainWindow
 
         var srCol = new StackPanel { Spacing = 2 };
         srCol.Children.Add(new TextBlock { Text = "DLSS", FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush) });
-        if (!string.IsNullOrEmpty(s.DefaultDlssVersion)) srCol.Children.Add(MakeSummaryText(s.DefaultDlssVersion));
+        if (s.DefaultSrDriverOverride) srCol.Children.Add(MakeSummaryText("NVIDIA Override"));
+        else if (!string.IsNullOrEmpty(s.DefaultDlssVersion)) srCol.Children.Add(MakeSummaryText(s.DefaultDlssVersion));
         if (s.DefaultSrPreset != 0) srCol.Children.Add(MakeSummaryText($"Preset {DlssPresetService.SrPresets.FirstOrDefault(p => p.Value == s.DefaultSrPreset).Name ?? "?"}"));
         if (s.DefaultSrRenderScale != 0) srCol.Children.Add(MakeSummaryText($"{s.DefaultSrRenderScale}%"));
         Grid.SetColumn(srCol, 0);
@@ -212,7 +214,8 @@ public sealed partial class MainWindow
 
         var rrCol = new StackPanel { Spacing = 2 };
         rrCol.Children.Add(new TextBlock { Text = "RR", FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush) });
-        if (!string.IsNullOrEmpty(s.DefaultDlssdVersion)) rrCol.Children.Add(MakeSummaryText(s.DefaultDlssdVersion));
+        if (s.DefaultRrDriverOverride) rrCol.Children.Add(MakeSummaryText("NVIDIA Override"));
+        else if (!string.IsNullOrEmpty(s.DefaultDlssdVersion)) rrCol.Children.Add(MakeSummaryText(s.DefaultDlssdVersion));
         if (s.DefaultRrPreset != 0) rrCol.Children.Add(MakeSummaryText($"Preset {DlssPresetService.RrPresets.FirstOrDefault(p => p.Value == s.DefaultRrPreset).Name ?? "?"}"));
         if (s.DefaultRrRenderScale != 0) rrCol.Children.Add(MakeSummaryText($"{s.DefaultRrRenderScale}%"));
         Grid.SetColumn(rrCol, 2);
@@ -222,7 +225,8 @@ public sealed partial class MainWindow
 
         var fgCol = new StackPanel { Spacing = 2 };
         fgCol.Children.Add(new TextBlock { Text = "FG", FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush) });
-        if (!string.IsNullOrEmpty(s.DefaultDlssgVersion)) fgCol.Children.Add(MakeSummaryText(s.DefaultDlssgVersion));
+        if (s.DefaultFgDriverOverride) fgCol.Children.Add(MakeSummaryText("NVIDIA Override"));
+        else if (!string.IsNullOrEmpty(s.DefaultDlssgVersion)) fgCol.Children.Add(MakeSummaryText(s.DefaultDlssgVersion));
         if (s.DefaultFgPreset != 0) fgCol.Children.Add(MakeSummaryText($"Preset {DlssPresetService.FgPresets.FirstOrDefault(p => p.Value == s.DefaultFgPreset).Name ?? "?"}"));
         Grid.SetColumn(fgCol, 4);
         grid.Children.Add(fgCol);

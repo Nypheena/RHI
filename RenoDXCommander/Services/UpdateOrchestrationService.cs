@@ -16,6 +16,7 @@ public class UpdateOrchestrationService : IUpdateOrchestrationService
     private readonly IAuxFileService _auxFileService;
     private readonly IREFrameworkService _refService;
     private readonly ILumaService _lumaService;
+    private readonly HttpClient _http;
 
     public UpdateOrchestrationService(
         IModInstallService installer,
@@ -23,7 +24,8 @@ public class UpdateOrchestrationService : IUpdateOrchestrationService
         ICrashReporter crashReporter,
         IAuxFileService auxFileService,
         IREFrameworkService refService,
-        ILumaService lumaService)
+        ILumaService lumaService,
+        HttpClient http)
     {
         _installer = installer;
         _auxInstaller = auxInstaller;
@@ -31,6 +33,7 @@ public class UpdateOrchestrationService : IUpdateOrchestrationService
         _auxFileService = auxFileService;
         _refService = refService;
         _lumaService = lumaService;
+        _http = http;
     }
 
     /// <summary>
@@ -112,7 +115,14 @@ public class UpdateOrchestrationService : IUpdateOrchestrationService
                 bool deployLutUpdate = compatUpdate?.Lut ?? true;
 
                 if (card.UseUeExtended && card.InstalledRecord?.EngineIniHdr != false && deployHdrUpdate)
-                    AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
+                {
+                    string? engineIniFilename = null;
+                    AuxInstallService.GlobalManifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilename);
+                    if (!string.IsNullOrEmpty(engineIniFilename))
+                        await AuxInstallService.ApplyEngineIniFromFileAsync(_http, engineIniFilename, card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source).ConfigureAwait(false);
+                    else
+                        AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
+                }
 
                 // Deploy r.LUT.UpdateEveryFrame=1 (skip if user disabled or compat entry says no)
                 if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLutUpdate)

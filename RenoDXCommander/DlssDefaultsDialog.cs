@@ -30,7 +30,7 @@ public static class DlssDefaultsDialog
         srCol.Children.Add(new TextBlock { Text = "DLSS", FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush) });
 
         srCol.Children.Add(new TextBlock { Text = "Version", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0) });
-        var srVersionCombo = BuildCombo(dlssService.DlssVersions, settings.DefaultDlssVersion);
+        var srVersionCombo = BuildCombo(dlssService.DlssVersions, settings.DefaultDlssVersion, includeDriverOverride: true, currentDriverOverride: settings.DefaultSrDriverOverride);
         srCol.Children.Add(srVersionCombo);
 
         srCol.Children.Add(new TextBlock { Text = "Preset", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0) });
@@ -52,7 +52,7 @@ public static class DlssDefaultsDialog
         rrCol.Children.Add(new TextBlock { Text = "Ray Reconstruction", FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush) });
 
         rrCol.Children.Add(new TextBlock { Text = "Version", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0) });
-        var rrVersionCombo = BuildCombo(dlssService.DlssdVersions, settings.DefaultDlssdVersion);
+        var rrVersionCombo = BuildCombo(dlssService.DlssdVersions, settings.DefaultDlssdVersion, includeDriverOverride: true, currentDriverOverride: settings.DefaultRrDriverOverride);
         rrCol.Children.Add(rrVersionCombo);
 
         rrCol.Children.Add(new TextBlock { Text = "Preset", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0) });
@@ -74,7 +74,7 @@ public static class DlssDefaultsDialog
         fgCol.Children.Add(new TextBlock { Text = "Frame Generation", FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush) });
 
         fgCol.Children.Add(new TextBlock { Text = "Version", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0) });
-        var fgVersionCombo = BuildCombo(dlssService.DlssgVersions, settings.DefaultDlssgVersion);
+        var fgVersionCombo = BuildCombo(dlssService.DlssgVersions, settings.DefaultDlssgVersion, includeDriverOverride: true, currentDriverOverride: settings.DefaultFgDriverOverride);
         fgCol.Children.Add(fgVersionCombo);
 
         fgCol.Children.Add(new TextBlock { Text = "Preset", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Microsoft.UI.Xaml.Thickness(0, 2, 0, 0) });
@@ -141,10 +141,19 @@ public static class DlssDefaultsDialog
         var result = await DialogService.ShowSafeAsync(dialog);
         if (result != ContentDialogResult.Primary) return;
 
-        // Save selections
-        settings.DefaultDlssVersion = GetSelectedVersion(srVersionCombo);
-        settings.DefaultDlssdVersion = GetSelectedVersion(rrVersionCombo);
-        settings.DefaultDlssgVersion = GetSelectedVersion(fgVersionCombo);
+        // Save selections — "NVIDIA Override" stores the bool, not the version string
+        var srVersionSelected = GetSelectedVersion(srVersionCombo);
+        settings.DefaultSrDriverOverride = srVersionSelected == "NVIDIA Override";
+        settings.DefaultDlssVersion = settings.DefaultSrDriverOverride ? "" : srVersionSelected;
+
+        var rrVersionSelected = GetSelectedVersion(rrVersionCombo);
+        settings.DefaultRrDriverOverride = rrVersionSelected == "NVIDIA Override";
+        settings.DefaultDlssdVersion = settings.DefaultRrDriverOverride ? "" : rrVersionSelected;
+
+        var fgVersionSelected = GetSelectedVersion(fgVersionCombo);
+        settings.DefaultFgDriverOverride = fgVersionSelected == "NVIDIA Override";
+        settings.DefaultDlssgVersion = settings.DefaultFgDriverOverride ? "" : fgVersionSelected;
+
         settings.DefaultStreamlineVersion = GetSelectedVersion(slVersionCombo);
         settings.DefaultSrPreset = GetSelectedPreset(srPresetCombo, DlssPresetService.SrPresets);
         settings.DefaultRrPreset = GetSelectedPreset(rrPresetCombo, DlssPresetService.RrPresets);
@@ -173,14 +182,20 @@ public static class DlssDefaultsDialog
         return divider;
     }
 
-    private static ComboBox BuildCombo(IReadOnlyList<string> versions, string currentDefault)
+    private static ComboBox BuildCombo(IReadOnlyList<string> versions, string currentDefault, bool includeDriverOverride = false, bool currentDriverOverride = false)
     {
         var items = new List<string> { "Default" };
         items.AddRange(versions);
         items.Add("Custom");
+        if (includeDriverOverride)
+            items.Add("NVIDIA Override");
 
         int selectedIdx = 0;
-        if (!string.IsNullOrEmpty(currentDefault))
+        if (includeDriverOverride && currentDriverOverride)
+        {
+            selectedIdx = items.Count - 1; // "NVIDIA Override" is last
+        }
+        else if (!string.IsNullOrEmpty(currentDefault))
         {
             var idx = items.IndexOf(currentDefault);
             if (idx > 0) selectedIdx = idx;

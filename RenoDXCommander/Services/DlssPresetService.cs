@@ -600,6 +600,37 @@ public partial class DlssPresetService
     public bool IsNrDriverOverrideActive(string gameName, string installPath)
         => GetPreset(gameName, installPath, DLSS_NR_LATEST_DLL_ID) == 1;
 
+    // ── Enable / disable the driver "Latest DLL" overrides ────────────────────
+
+    /// <summary>Writes 1 to DLSS_SR_LATEST_DLL_ID so the driver injects its own SR DLL for this game.</summary>
+    public bool SetSrDriverOverride(string gameName, string installPath, bool enable)
+    {
+        if (!enable) return DeletePreset(gameName, installPath, DLSS_SR_LATEST_DLL_ID);
+        return SetPreset(gameName, installPath, DLSS_SR_LATEST_DLL_ID, 1u);
+    }
+
+    /// <summary>Writes 1 to DLSS_RR_LATEST_DLL_ID so the driver injects its own RR DLL for this game.</summary>
+    public bool SetRrDriverOverride(string gameName, string installPath, bool enable)
+    {
+        if (!enable) return DeletePreset(gameName, installPath, DLSS_RR_LATEST_DLL_ID);
+        return SetPreset(gameName, installPath, DLSS_RR_LATEST_DLL_ID, 1u);
+    }
+
+    /// <summary>Writes 1 to DLSS_FG_LATEST_DLL_ID so the driver injects its own FG DLL for this game.</summary>
+    public bool SetFgDriverOverride(string gameName, string installPath, bool enable)
+    {
+        if (!enable) return DeletePreset(gameName, installPath, DLSS_FG_LATEST_DLL_ID);
+        return SetPreset(gameName, installPath, DLSS_FG_LATEST_DLL_ID, 1u);
+    }
+
+    /// <summary>Clears all three Latest DLL driver overrides for a game (called by Restore DLSS/SL).</summary>
+    public void ClearAllDriverOverrides(string gameName, string installPath)
+    {
+        DeletePreset(gameName, installPath, DLSS_SR_LATEST_DLL_ID);
+        DeletePreset(gameName, installPath, DLSS_RR_LATEST_DLL_ID);
+        DeletePreset(gameName, installPath, DLSS_FG_LATEST_DLL_ID);
+    }
+
     // ── Set presets ───────────────────────────────────────────────────────────
 
     public bool SetSrPreset(string gameName, string installPath, uint preset)

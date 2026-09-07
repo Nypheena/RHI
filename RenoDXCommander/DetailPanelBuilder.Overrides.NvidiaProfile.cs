@@ -174,7 +174,12 @@ public partial class DetailPanelBuilder
                 currentRenderScale: presetService.IsSupported && srEnabled ? (dlssData?.SrRenderScale ?? 0u) : 0u,
                 onRenderScaleSelected: (pct) => { presetService.SetSrRenderScale(card.GameName, card.InstallPath, pct); _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(card)); },
                 originalVersion: card.DlssDetection?.OriginalDlssVersion,
-                driverOverrideActive: srDriverOverride);
+                driverOverrideActive: srDriverOverride,
+                onDriverOverrideToggled: presetService.IsSupported && hasDlss ? (enable) =>
+                {
+                    presetService.SetSrDriverOverride(card.GameName, card.InstallPath, enable);
+                    _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(card));
+                } : null);
             Grid.SetColumn(srCol, 0);
             dlssRowGrid.Children.Add(srCol);
 
@@ -199,7 +204,12 @@ public partial class DetailPanelBuilder
                 currentRenderScale: presetService.IsSupported && hasDlssd ? (dlssData?.RrRenderScale ?? 0u) : 0u,
                 onRenderScaleSelected: (pct) => { presetService.SetRrRenderScale(card.GameName, card.InstallPath, pct); _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(card)); },
                 originalVersion: card.DlssDetection?.OriginalDlssdVersion,
-                driverOverrideActive: rrDriverOverride);
+                driverOverrideActive: rrDriverOverride,
+                onDriverOverrideToggled: presetService.IsSupported && hasDlssd ? (enable) =>
+                {
+                    presetService.SetRrDriverOverride(card.GameName, card.InstallPath, enable);
+                    _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(card));
+                } : null);
             Grid.SetColumn(rrCol, 2);
             dlssRowGrid.Children.Add(rrCol);
 
@@ -223,7 +233,12 @@ public partial class DetailPanelBuilder
                 },
                 (preset) => { presetService.SetFgPreset(card.GameName, card.InstallPath, preset); _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(card)); },
                 originalVersion: card.DlssDetection?.OriginalDlssgVersion,
-                driverOverrideActive: fgDriverOverride);
+                driverOverrideActive: fgDriverOverride,
+                onDriverOverrideToggled: presetService.IsSupported && hasDlssg ? (enable) =>
+                {
+                    presetService.SetFgDriverOverride(card.GameName, card.InstallPath, enable);
+                    _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(card));
+                } : null);
 
             // Add Multi Frame Generation button to FG column
             fgCol.Children.Add(new TextBlock { Text = " ", FontSize = 10, Margin = new Thickness(0, 2, 0, 0) });
@@ -561,7 +576,8 @@ public partial class DetailPanelBuilder
                 || (FeatureFlags.DlssNr && presetService.IsSupported && card.HasDlssnr && (dlssData?.NrPreset ?? 0u) != 0)
                 || (presetService.IsSupported && hasDlss  && (dlssData?.SrRenderScale ?? 0u) != 0)
                 || (presetService.IsSupported && hasDlssd && (dlssData?.RrRenderScale ?? 0u) != 0)
-                || (presetService.IsSupported && hasDlssg && (dlssData?.MfgMode ?? 0u) != 0);
+                || (presetService.IsSupported && hasDlssg && (dlssData?.MfgMode ?? 0u) != 0)
+                || (presetService.IsSupported && (dlssData?.SrDriverOverride == true || dlssData?.RrDriverOverride == true || dlssData?.FgDriverOverride == true));
             bool restoreEnabled = card.HasAnyDlssBackup || hasNonDefaultPreset;
             var dlssRestoreBtn = new Button
             {
@@ -595,6 +611,9 @@ public partial class DetailPanelBuilder
                     presetService.SetMfgGenerationFactor(targetCard.GameName, targetCard.InstallPath, 0);
                     presetService.DeleteMfgDynamicMaxCount(targetCard.GameName, targetCard.InstallPath);
                     presetService.DeleteMfgDynamicTargetFps(targetCard.GameName, targetCard.InstallPath);
+                    // Clear any NVIDIA driver DLL override selections
+                    if (presetService.IsSupported)
+                        presetService.ClearAllDriverOverrides(targetCard.GameName, targetCard.InstallPath ?? "");
                     targetCard.RefreshDlssVersions(dlssService);
                     _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(targetCard));
                 }
@@ -613,6 +632,9 @@ public partial class DetailPanelBuilder
                 || _window.ViewModel.Settings.DefaultFgPreset != 0
                 || _window.ViewModel.Settings.DefaultSrRenderScale != 0
                 || _window.ViewModel.Settings.DefaultRrRenderScale != 0
+                || _window.ViewModel.Settings.DefaultSrDriverOverride
+                || _window.ViewModel.Settings.DefaultRrDriverOverride
+                || _window.ViewModel.Settings.DefaultFgDriverOverride
                 || (FeatureFlags.DlssNr && (!string.IsNullOrEmpty(_window.ViewModel.Settings.DefaultDlssnrVersion) || _window.ViewModel.Settings.DefaultNrPreset != 0));
 
             var applyBtn = new Button
@@ -643,6 +665,19 @@ public partial class DetailPanelBuilder
                 bool srOverride = pSvc.IsSupported && pSvc.IsSrDriverOverrideActive(targetCard.GameName, targetCard.InstallPath ?? "");
                 bool rrOverride = pSvc.IsSupported && pSvc.IsRrDriverOverrideActive(targetCard.GameName, targetCard.InstallPath ?? "");
                 bool fgOverride = pSvc.IsSupported && pSvc.IsFgDriverOverrideActive(targetCard.GameName, targetCard.InstallPath ?? "");
+
+                // Apply driver override defaults if configured — takes priority over version defaults
+                if (pSvc.IsSupported && settings.DefaultSrDriverOverride && targetCard.HasDlss)
+                    pSvc.SetSrDriverOverride(targetCard.GameName, targetCard.InstallPath ?? "", true);
+                if (pSvc.IsSupported && settings.DefaultRrDriverOverride && targetCard.HasDlssd)
+                    pSvc.SetRrDriverOverride(targetCard.GameName, targetCard.InstallPath ?? "", true);
+                if (pSvc.IsSupported && settings.DefaultFgDriverOverride && targetCard.HasDlssg)
+                    pSvc.SetFgDriverOverride(targetCard.GameName, targetCard.InstallPath ?? "", true);
+
+                // Re-read override state after applying defaults (may have just been enabled above)
+                srOverride = pSvc.IsSupported && (srOverride || settings.DefaultSrDriverOverride);
+                rrOverride = pSvc.IsSupported && (rrOverride || settings.DefaultRrDriverOverride);
+                fgOverride = pSvc.IsSupported && (fgOverride || settings.DefaultFgDriverOverride);
 
                 if (!string.IsNullOrEmpty(settings.DefaultDlssVersion) && targetCard.HasDlss && targetCard.DlssDetection.DlssPath != null
                     && !(targetCard.DlssInstalledVersion?.StartsWith("1.") == true) && !srOverride)

@@ -1,4 +1,18 @@
 
+## v2.6.4
+
+### Changes
+
+- DLSS Super Resolution, Ray Reconstruction, and Frame Generation version combos now include **NVIDIA Override** as a selectable option. Choosing it writes the driver's "Latest DLL" flag to the game's NVIDIA profile, equivalent to enabling "DLSS — Enable DLL Override" in Profile Inspector. Selecting any other version or clicking Restore DLSS/SL clears the override. NVIDIA Override is also available as a default in Configure Defaults (applies via Quick Apply) and as a selectable option in Batch Deploy.
+- Added **engineIniFiles** manifest field — maps game names to custom Engine.ini files hosted in the rhi-repo `engine-files/` folder. When a game has an entry, RHI fetches and merges that file's keys instead of the standard HDR keys on UE-Extended install/update. Supports any section and any key. Black Myth: Wukong is the first entry.
+
+### Bug Fixes
+
+- Fixed NR Cost Scaler and RTX 40 MFG Unlock not detecting new releases mid-session — Check for Update and the 4-hour timer now bypass the ETag cache and always fetch fresh release data.
+- Fixed NR Cost Scaler and RTX 40 MFG Unlock not auto-deploying updated files to game folders after a new version is staged.
+
+---
+
 ## v2.6.3
 
 ### New
