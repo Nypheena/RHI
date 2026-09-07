@@ -907,7 +907,8 @@
     }
   },
   "engineIniFiles": {
-    "Black Myth: Wukong": "black-myth-wukong.ini"
+    "Black Myth: Wukong": "black-myth-wukong.ini",
+    "The Sinking City Remastered": "sinking-city-1r.ini"
   },
   "legacyReShadeVersions": {
     "Max Payne 3": "6.4.1"
