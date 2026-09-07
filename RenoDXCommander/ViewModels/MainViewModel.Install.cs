@@ -281,6 +281,23 @@ public partial class MainViewModel
         if (!nowExtended && wasInstalled && !string.IsNullOrEmpty(card.InstallPath))
         {
             AuxInstallService.RemoveRenoDxNativeHdrSettings(card.InstallPath);
+
+            string? engineIniFilenameToggle = null;
+            _manifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilenameToggle);
+            if (!string.IsNullOrEmpty(engineIniFilenameToggle))
+            {
+                var cacheDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RHI", "engine-files");
+                var cachePath = Path.Combine(cacheDir, engineIniFilenameToggle);
+                if (File.Exists(cachePath))
+                {
+                    var entries = AuxInstallService.ParseEngineIniEntries(File.ReadAllText(cachePath));
+                    if (entries.Count > 0)
+                        AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath,
+                            entries.Select(e => e.Key), card.EngineIniProjectOverride, card.GameName, card.Source);
+                }
+            }
+
             AuxInstallService.RemoveEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
             AuxInstallService.RemoveEngineIniLutSetting(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
         }
@@ -896,8 +913,9 @@ public partial class MainViewModel
                 _installer.SaveRecordPublic(record);
             }
 
-            // Deploy r.LUT.UpdateEveryFrame=1 (skip if user disabled or compat entry says no)
-            if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLut)
+            // Deploy r.LUT.UpdateEveryFrame=1 (skip if user disabled, compat entry says no, or custom Engine.ini file is in use)
+            if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLut
+                && string.IsNullOrEmpty(engineIniFilename))
                 AuxInstallService.ApplyEngineIniLutSetting(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
 
             // Update only this card's observable properties in-place.
@@ -976,6 +994,25 @@ public partial class MainViewModel
         if (card.UseUeExtended && !string.IsNullOrEmpty(card.InstallPath))
         {
             AuxInstallService.RemoveRenoDxNativeHdrSettings(card.InstallPath);
+
+            // If a custom Engine.ini file was used, remove its keys from the cached file
+            string? engineIniFilename = null;
+            _manifest?.EngineIniFiles?.TryGetValue(card.GameName, out engineIniFilename);
+            if (!string.IsNullOrEmpty(engineIniFilename))
+            {
+                var cacheDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RHI", "engine-files");
+                var cachePath = Path.Combine(cacheDir, engineIniFilename);
+                if (File.Exists(cachePath))
+                {
+                    var content = File.ReadAllText(cachePath);
+                    var entries = AuxInstallService.ParseEngineIniEntries(content);
+                    if (entries.Count > 0)
+                        AuxInstallService.RemoveEngineIniCustomKeys(card.InstallPath,
+                            entries.Select(e => e.Key), card.EngineIniProjectOverride, card.GameName, card.Source);
+                }
+            }
+
             AuxInstallService.RemoveEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
             AuxInstallService.RemoveEngineIniLutSetting(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
         }

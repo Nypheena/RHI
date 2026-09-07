@@ -122,8 +122,9 @@ public class UpdateOrchestrationService : IUpdateOrchestrationService
                 else if (card.UseUeExtended && card.InstalledRecord?.EngineIniHdr != false && deployHdrUpdate)
                     AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
 
-                // Deploy r.LUT.UpdateEveryFrame=1 (skip if user disabled or compat entry says no)
-                if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLutUpdate)
+                // Deploy r.LUT.UpdateEveryFrame=1 (skip if user disabled, compat entry says no, or custom Engine.ini file is in use)
+                if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLutUpdate
+                    && string.IsNullOrEmpty(engineIniFilenameUpdate))
                     AuxInstallService.ApplyEngineIniLutSetting(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
 
                 dispatcherQueue?.TryEnqueue(() =>

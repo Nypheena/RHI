@@ -304,7 +304,8 @@ public partial class MainViewModel
                 else if (card.UseUeExtended && record.EngineIniHdr != false && deployHdr)
                     AuxInstallService.ApplyEngineIniHdrSettings(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
 
-                if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLut)
+                if (card.EngineHint?.Contains("Unreal") == true && card.InstalledRecord?.EngineIniLut != false && deployLut
+                    && string.IsNullOrEmpty(engineIniFilename))
                     AuxInstallService.ApplyEngineIniLutSetting(card.InstallPath, card.EngineIniProjectOverride, card.GameName, card.Source);
 
                 // Update Nexus baseline so update indicator clears
