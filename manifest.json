@@ -1135,6 +1135,9 @@
     },
     "The Sinking City Remastered": {
       "notes": "\u26A0\uFE0F amd_FusionFX.dll must be deleted from the game folder for frame generation to work."
+    },
+    "Satisfactory": {
+      "notes": "To enable Frame Generation, add these lines to Engine.ini:\n\n[/Script/Engine.RendererSettings]\nt.Streamline.Reflex.Enable=1\nr.Streamline.DLSSG.Enable=1\n\nThe Config button in the detail panel opens the Engine.ini folder."
     }
   },
   "lumaGameNotes": {
