@@ -1232,7 +1232,7 @@ public sealed partial class MainWindow
                     if (card != null)
                         DispatcherQueue.TryEnqueue(() => LaunchGame(card));
                 });
-            TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentLaunches);
+            TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentGamesMenu ? ViewModel.Settings.RecentLaunches : new List<string>());
         }
     }
 

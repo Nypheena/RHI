@@ -37,6 +37,10 @@ public partial class DetailPanelBuilder
 
     public void BuildOverridesPanel(GameCardViewModel card)
     {
+        // Abort any in-progress drag before clearing the header row — prevents stale
+        // _dragging = true from blocking pointer events on the rebuilt panel.
+        if (_dragging) DragEnd(save: false);
+
         _window.OverridesPanel.Children.Clear();
         _window.OverridesHeaderRow.Children.Clear();
 
@@ -405,6 +409,8 @@ public partial class DetailPanelBuilder
             // Use card directly to avoid multi-store lookup picking the wrong card
             var targetCard = card;
 
+            try
+            {
             if (dllOverrideToggle.IsOn)
             {
                 // Turning unified override ON
@@ -568,10 +574,16 @@ public partial class DetailPanelBuilder
                     ToolTipService.SetToolTip(dllOverrideToggle,
                         "Override the filenames ReShade is installed as. When enabled, existing RS files are renamed to the custom filenames.");
                 }
+            } // end if/else dllOverrideToggle.IsOn
+            } // end try body
+            catch (Exception ex)
+            {
+                CrashReporter.Log($"[DetailPanelBuilder] DLL override toggle failed — {ex.Message}");
             }
-
-            dllOverrideToggle.IsEnabled = true;
-            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
+            finally
+            {
+                dllOverrideToggle.IsEnabled = true;
+            }
         };
 
         // ── Auto-save: DC name box on dropdown selection (with foreign DLL check) ──

@@ -1,4 +1,15 @@
 
+## v2.6.6
+
+### Bug Fixes
+
+- Fixed DLL naming override toggle becoming unresponsive after being toggled — any in-progress drag state is now cleared when the overrides panel rebuilds, and the toggle is always re-enabled via a `finally` block even if file operations throw.
+- Fixed Recent Games Off setting not hiding games from the system tray right-click menu — all call sites now pass an empty list when the setting is off.
+- Fixed Recent Games Off setting not clearing the taskbar jump list — jump list now uses `ICustomDestinationList` instead of `SHAddToRecentDocs`, giving RHI full control to clear it when the setting is toggled off.
+- Fixed reinstalling ASI Loader with a different DLL name leaving the old DLL behind — the previous install is now cleaned up (and any Hooked backup restored) before deploying under the new name.
+
+---
+
 ## v2.6.5
 
 ### Bug Fixes

@@ -203,6 +203,29 @@ public class UltimateAsiLoaderService
         var src        = Path.Combine(stagingDir, DefaultDllName);
         var destPath   = Path.Combine(card.InstallPath, dllName);
 
+        // If reinstalling under a different name, clean up the old installation first
+        var existingRecord = _auxInstaller.FindRecord(card.GameName, card.InstallPath, AddonType);
+        if (existingRecord != null && !existingRecord.InstalledAs.Equals(dllName, StringComparison.OrdinalIgnoreCase))
+        {
+            var oldPath    = Path.Combine(card.InstallPath, existingRecord.InstalledAs);
+            var oldExt     = Path.GetExtension(existingRecord.InstalledAs);
+            var oldNoExt   = Path.GetFileNameWithoutExtension(existingRecord.InstalledAs);
+            var oldHooked  = Path.Combine(card.InstallPath, $"{oldNoExt}Hooked{oldExt}");
+
+            try
+            {
+                if (File.Exists(oldPath)) File.Delete(oldPath);
+                // Restore hooked backup if present
+                if (File.Exists(oldHooked))
+                    File.Move(oldHooked, oldPath, overwrite: false);
+                _crashReporter.Log($"[UltimateAsiLoaderService.InstallAsync] Removed old install '{existingRecord.InstalledAs}' for '{card.GameName}'");
+            }
+            catch (Exception ex)
+            {
+                _crashReporter.Log($"[UltimateAsiLoaderService.InstallAsync] Old cleanup failed (non-fatal) — {ex.Message}");
+            }
+        }
+
         // Hooked chaining — if the target DLL exists and is NOT ours, rename it first
         string? hookedOriginal = null;
         if (File.Exists(destPath) && !IsRhiManagedFile(card, dllName))

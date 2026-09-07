@@ -377,7 +377,17 @@ public partial class DetailPanelBuilder
             IsHitTestVisible = !osGreyed,
         };
         installBtn.Content = WithInfoArrow(card.OsActionLabel, HasRealInfoContent(card, AddonType.OptiScaler), card.OsStatus == GameStatus.UpdateAvailable, installBtn);
-        installBtn.Click += (s, e) => _window.InstallOsButton_Click(s, e);
+        installBtn.Click += async (s, e) =>
+        {
+            _window.InstallOsButton_Click(s, e);
+            // Poll until OsIsInstalling is done, then rebuild the panel
+            await Task.Run(async () =>
+            {
+                while (card.OsIsInstalling)
+                    await Task.Delay(100).ConfigureAwait(false);
+            });
+            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
+        };
         Grid.SetColumn(installBtn, 3);
         row.Children.Add(installBtn);
 
@@ -420,7 +430,13 @@ public partial class DetailPanelBuilder
             IsHitTestVisible = osShow && !osGreyed,
         };
         ToolTipService.SetToolTip(deleteBtn, "Remove OptiScaler");
-        deleteBtn.Click += (s, e) => _window.UninstallOsButton_Click(s, e);
+        deleteBtn.Click += async (s, e) =>
+        {
+            _window.UninstallOsButton_Click(s, e);
+            // Uninstall is synchronous — rebuild immediately on next tick
+            await Task.Delay(50);
+            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
+        };
         Grid.SetColumn(deleteBtn, 5);
         row.Children.Add(deleteBtn);
 

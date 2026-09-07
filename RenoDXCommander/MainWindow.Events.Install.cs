@@ -803,7 +803,7 @@ public sealed partial class MainWindow
         ViewModel.Settings.RecentLaunches = recent;
         ViewModel.SaveSettingsPublic();
 
-        TrayIconService.UpdateRecentGames(recent);
+        TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentGamesMenu ? recent : new List<string>());
         if (ViewModel.Settings.RecentGamesMenu)
             TrayIconService.UpdateJumpList(recent);
     }

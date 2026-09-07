@@ -145,7 +145,7 @@ public sealed partial class MainWindow : Window
                         DispatcherQueue.TryEnqueue(() => LaunchGame(card));
                     }
                 });
-            TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentLaunches);
+            TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentGamesMenu ? ViewModel.Settings.RecentLaunches : new List<string>());
         }
 
         // Jump list (taskbar right-click) — independent of tray icon
@@ -329,7 +329,7 @@ public sealed partial class MainWindow : Window
                     DispatcherQueue.TryEnqueue(() => LaunchGame(card));
                 }
             });
-        TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentLaunches);
+        TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentGamesMenu ? ViewModel.Settings.RecentLaunches : new List<string>());
         
         // Update jump list if enabled
         if (ViewModel.Settings.RecentGamesMenu && ViewModel.Settings.RecentLaunches.Count > 0)
