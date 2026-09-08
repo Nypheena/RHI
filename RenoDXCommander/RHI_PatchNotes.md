@@ -8,10 +8,6 @@
 - Neural Rendering DLL selection simplified to 310.8.2 — ShortFuse's modified build with support for all RTX GPUs (20/30/40/50 series).
 - Added tooltips to the DLSS SR, RR, FG, and Streamline version dropdowns explaining that selecting a version copies it into the game folder, what Default and Custom do, and how NVIDIA Override works.
 
-### Manifest Updates
-
-- Grand Theft Auto V Enhanced: added a ReShade install warning about the DirectStorage incompatibility that causes "Unable to save configuration" errors, with a link to the DirectStorageFix and a note to use an older ReShade version as an alternative.
-
 ### Bug Fixes
 
 - Fixed Custom render scale in DLSS & Streamline Defaults — selecting "Custom" now shows a text box so you can type in a specific percentage (33–100%).
@@ -27,6 +23,11 @@
 - Fixed OptiScaler install and uninstall progress not showing in the Extras section — the progress bar and status message now appear directly below the OptiScaler row where they belong. *(Thanks Sapphire)*
 - Fixed installing or removing ASI Loader and RTX 40 MFG Unlock resetting the Extras panel scroll position.
 - Fixed the drop helper window appearing as a separate entry in the taskbar and Alt+Tab switcher. *(Thanks Owen)*
+
+### Manifest Updates
+
+- Grand Theft Auto V Enhanced: added a ReShade install warning about the DirectStorage incompatibility that causes "Unable to save configuration" errors, with a link to the DirectStorageFix and a note to use an older ReShade version as an alternative.
+- Satisfactory: added Frame Generation setup instructions — the Engine.ini keys needed to enable DLSS FG in Satisfactory are now shown in the ReShade info button.
 
 ---
 
