@@ -805,7 +805,7 @@ public sealed partial class MainWindow
 
         TrayIconService.UpdateRecentGames(ViewModel.Settings.RecentGamesMenu ? recent : new List<string>());
         if (ViewModel.Settings.RecentGamesMenu)
-            TrayIconService.UpdateJumpList(recent);
+            _ = Task.Run(() => TrayIconService.UpdateJumpList(recent));
     }
 
     /// <summary>

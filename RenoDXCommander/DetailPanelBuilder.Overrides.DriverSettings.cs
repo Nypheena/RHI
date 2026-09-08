@@ -57,10 +57,53 @@ public partial class DetailPanelBuilder
         var svc = nvidiaPresetService;
         var nvBodySnapshot = _nvBodyPanel;
 
+        // Create a dedicated container for the driver profile section.
+        // This lets us replace only the driver content when the live scan completes,
+        // without touching the DLSS rows above it in nvBodySnapshot.
+        var driverContainer = new StackPanel();
+        nvBodySnapshot?.Children.Add(driverContainer);
+
+        // Render immediately from cached driver profile data if available.
+        // BuildNvidiaProfileBody already called us synchronously (from the cached or live path),
+        // so nvBodySnapshot has the DLSS content — we just populate driverContainer.
+        if (nvidiaPresetService.IsSupported && card.CachedNvidiaProfileValid)
+        {
+            var cachedData = new DriverProfileData(
+                VSyncMode:                  card.CachedVSyncMode,
+                GlobalVSyncMode:            card.CachedGlobalVSyncMode,
+                VSyncTearControl:           card.CachedVSyncTearControl,
+                LowLatencyMode:             card.CachedLowLatencyMode,
+                SmoothMotionEnable:         card.CachedSmoothMotionEnable,
+                SmoothMotionApis:           card.CachedSmoothMotionApis,
+                SmoothMotionFlipPacingFs:   card.CachedSmoothMotionFlipPacingFs,
+                PowerManagementMode:        card.CachedPowerManagementMode,
+                PerGameGSyncEnabled:        card.CachedPerGameGSyncEnabled,
+                ReBarSizeLimit:             card.CachedReBarSizeLimit,
+                ReBarEnableMode:            card.CachedReBarEnableMode,
+                ReBarMode:                  card.CachedReBarMode,
+                GlobalReBarSizeLimit:       card.CachedGlobalReBarSizeLimit,
+                IsAdmin:                    VulkanLayerService.IsRunningAsAdmin());
+            // Build into a temp container, then add as a single child — avoids per-element layout thrash.
+            var tempDriver = new StackPanel();
+            BuildDriverProfileSectionWithData(card, capturedName, nvidiaPresetService, tempDriver, cachedData);
+            driverContainer.Children.Add(tempDriver);
+        }
+
+        // Capture whether we rendered from cache so the background scan can decide
+        // whether a rebuild of the driver container is needed.
+        bool driverCacheWasValid = nvidiaPresetService.IsSupported && card.CachedNvidiaProfileValid;
+
         // Fetch all NVAPI values off the UI thread, then build UI synchronously on dispatcher
+        var scanToken = _panelScanCts.Token;
         _ = Task.Run(async () =>
         {
-            await _panelScanSemaphore.WaitAsync().ConfigureAwait(false);
+            // Skip if the user navigated away before we even acquire the semaphore —
+            // the cached render is already showing; no need to do the NVAPI scan.
+            if (_window.ViewModel.SelectedGame?.GameName.Equals(gameName, StringComparison.OrdinalIgnoreCase) != true
+                || _window.ViewModel.SelectedGame?.Source != gameSource)
+                return;
+
+            if (!_panelScanSemaphore.Wait(0)) return;
             DriverProfileData? data = null;
             try
             {
@@ -85,7 +128,7 @@ public partial class DetailPanelBuilder
                 _panelScanSemaphore.Release();
             }
 
-            _window.DispatcherQueue?.TryEnqueue(() =>
+            _window.DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
                 // Guard: if the user has navigated away, the body panel may have been replaced
                 var currentCard = _window.ViewModel.SelectedGame;
@@ -93,7 +136,40 @@ public partial class DetailPanelBuilder
                     || currentCard.Source != gameSource)
                     return;
 
-                BuildDriverProfileSectionWithData(targetCard, capturedName, svc, nvBodySnapshot, data);
+                // Save live driver profile values to card cache so the next selection renders immediately
+                // Compare before updating to detect if anything actually changed.
+                bool driverDataChanged = !driverCacheWasValid
+                    || data.VSyncMode != targetCard.CachedVSyncMode
+                    || data.GlobalVSyncMode != targetCard.CachedGlobalVSyncMode
+                    || data.VSyncTearControl != targetCard.CachedVSyncTearControl
+                    || data.LowLatencyMode != targetCard.CachedLowLatencyMode
+                    || data.SmoothMotionEnable != targetCard.CachedSmoothMotionEnable
+                    || data.SmoothMotionApis != targetCard.CachedSmoothMotionApis
+                    || data.SmoothMotionFlipPacingFs != targetCard.CachedSmoothMotionFlipPacingFs
+                    || data.PowerManagementMode != targetCard.CachedPowerManagementMode
+                    || data.PerGameGSyncEnabled != targetCard.CachedPerGameGSyncEnabled
+                    || data.ReBarSizeLimit != targetCard.CachedReBarSizeLimit
+                    || data.ReBarEnableMode != targetCard.CachedReBarEnableMode
+                    || data.ReBarMode != targetCard.CachedReBarMode
+                    || data.GlobalReBarSizeLimit != targetCard.CachedGlobalReBarSizeLimit;
+
+                targetCard.UpdateCachedDriverProfile(
+                    data.VSyncMode, data.GlobalVSyncMode, data.VSyncTearControl,
+                    data.LowLatencyMode, data.SmoothMotionEnable, data.SmoothMotionApis,
+                    data.SmoothMotionFlipPacingFs, data.PowerManagementMode,
+                    data.PerGameGSyncEnabled, data.ReBarSizeLimit,
+                    data.ReBarEnableMode, data.ReBarMode, data.GlobalReBarSizeLimit);
+
+                // If we already rendered from a valid cache and nothing changed,
+                // skip the expensive driver panel rebuild — the UI is already correct.
+                if (!driverDataChanged) return;
+
+                // Build into a throwaway container first, then swap atomically.
+                // This replaces ~67 individual Children.Add layout invalidations with just 2.
+                var tempDriver = new StackPanel();
+                BuildDriverProfileSectionWithData(targetCard, capturedName, svc, tempDriver, data);
+                driverContainer.Children.Clear();
+                driverContainer.Children.Add(tempDriver);
             });
         });
     }
@@ -630,7 +706,7 @@ public partial class DetailPanelBuilder
             nvidiaGrid.Children.Add(rebarCol);
             nvidiaGrid.Children.Add(MakeDlssDivider(3));
 
-            (_nvBodyPanel ?? _window.NvidiaProfilePanel).Children.Add(nvidiaGrid);
+            (nvBody ?? _window.NvidiaProfilePanel).Children.Add(nvidiaGrid);
         }
 
         // Admin notice at the bottom of the Nvidia Profile section

@@ -357,7 +357,7 @@ public partial class DetailPanelBuilder
                         var layer64 = Path.Combine(layerDir, VulkanLayerService.LayerDllName);
 
                         if (File.Exists(customFilePath) && File.Exists(layer64))
-                            AuxInstallService.CopyFileWithElevation(customFilePath, layer64);
+                            await Task.Run(() => AuxInstallService.CopyFileWithElevation(customFilePath, layer64));
                     }
                     catch (Exception ex)
                     {
@@ -478,9 +478,9 @@ public partial class DetailPanelBuilder
                     var layer32 = Path.Combine(layerDir, "ReShade32.dll");
 
                     if (File.Exists(stagedPath64) && new FileInfo(stagedPath64).Length > AuxInstallService.MinReShadeSize && File.Exists(layer64))
-                        AuxInstallService.CopyFileWithElevation(stagedPath64, layer64);
+                        await Task.Run(() => AuxInstallService.CopyFileWithElevation(stagedPath64, layer64));
                     if (File.Exists(stagedPath32) && new FileInfo(stagedPath32).Length > AuxInstallService.MinReShadeSize && File.Exists(layer32))
-                        AuxInstallService.CopyFileWithElevation(stagedPath32, layer32);
+                        await Task.Run(() => AuxInstallService.CopyFileWithElevation(stagedPath32, layer32));
                 }
                 catch (Exception ex)
                 {

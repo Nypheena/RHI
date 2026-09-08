@@ -1052,11 +1052,6 @@
                                                  Foreground="{StaticResource AccentBlueBrush}" Background="{StaticResource SurfaceToolbarBrush}"/>
                                     <TextBlock x:Name="DetailDcMessage" x:FieldModifier="internal" FontSize="10" Foreground="{StaticResource AccentBlueBrush}"
                                                Visibility="Collapsed" TextWrapping="Wrap"/>
-                                    <ProgressBar x:Name="DetailOsProgress" x:FieldModifier="internal" Visibility="Collapsed"
-                                                 Maximum="100" Height="3" CornerRadius="2"
-                                                 Foreground="{StaticResource AccentBlueBrush}" Background="{StaticResource SurfaceToolbarBrush}"/>
-                                    <TextBlock x:Name="DetailOsMessage" x:FieldModifier="internal" FontSize="10" Foreground="{StaticResource AccentBlueBrush}"
-                                               Visibility="Collapsed" TextWrapping="Wrap"/>
                                     <ProgressBar x:Name="DetailDofFixProgress" x:FieldModifier="internal" Visibility="Collapsed"
                                                  Maximum="100" Height="3" CornerRadius="2"
                                                  Foreground="{StaticResource AccentBlueBrush}" Background="{StaticResource SurfaceToolbarBrush}"/>
@@ -1124,7 +1119,14 @@
                                 Background="{StaticResource SurfaceComponentTableBrush}" CornerRadius="12"
                                 BorderBrush="{StaticResource BorderDefaultBrush}" BorderThickness="1"
                                 Padding="14,12" Visibility="Collapsed">
-                            <StackPanel x:Name="ExtrasPanel" x:FieldModifier="internal" Spacing="6"/>
+                            <StackPanel Spacing="6">
+                                <StackPanel x:Name="ExtrasPanel" x:FieldModifier="internal" Spacing="6"/>
+                                <ProgressBar x:Name="DetailOsProgress" x:FieldModifier="internal" Visibility="Collapsed"
+                                             Maximum="100" Height="3" CornerRadius="2"
+                                             Foreground="{StaticResource AccentBlueBrush}" Background="{StaticResource SurfaceToolbarBrush}"/>
+                                <TextBlock x:Name="DetailOsMessage" x:FieldModifier="internal" FontSize="10" Foreground="{StaticResource AccentBlueBrush}"
+                                           Visibility="Collapsed" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>

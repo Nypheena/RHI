@@ -78,6 +78,46 @@ public partial class DetailPanelBuilder
 
         // ── OptiScaler row ────────────────────────────────────────────────────
         BuildOsRow(card, exBody);
+
+        UpdateOsFeedback(card);
+    }
+
+    
+    public void OnExtrasCardPropertyChanged(GameCardViewModel card, string? propertyName)
+    {
+        UpdateOsFeedback(card);
+
+        if (propertyName is "IsOsInstalled" or "OsActionLabel" or "OsStatusText"
+            or "OsStatusColor" or "OsDeleteVisibility" or "OsRowVisibility"
+            or "OsInstallEnabled" or "OsBtnBackground" or "OsInstalledFile" or "Is32Bit")
+        {
+            RequestExtrasRebuild(card);
+        }
+    }
+
+    
+    public void UpdateOsFeedback(GameCardViewModel card)
+    {
+        _window.DetailOsProgress.Visibility = card.OsRowVisibility == Visibility.Visible ? card.OsProgressVisibility : Visibility.Collapsed;
+        _window.DetailOsProgress.Value = card.OsProgress;
+        _window.DetailOsMessage.Visibility = card.OsRowVisibility == Visibility.Visible ? card.OsMessageVisibility : Visibility.Collapsed;
+        _window.DetailOsMessage.Text = card.OsActionMessage;
+        _window.DetailOsMessage.Foreground = UIFactory.GetBrush(GetMessageColor(card.OsActionMessage));
+    }
+
+    
+    private bool _extrasRebuildPending;
+
+    public void RequestExtrasRebuild(GameCardViewModel card)
+    {
+        if (_extrasRebuildPending) return;
+        _extrasRebuildPending = true;
+        _window.DispatcherQueue.TryEnqueue(() =>
+        {
+            _extrasRebuildPending = false;
+            if (_currentDetailCard != card) return;
+            BuildExtrasSection(card);
+        });
     }
 
     private void BuildUalRow(GameCardViewModel card, StackPanel body)
@@ -209,15 +249,15 @@ public partial class DetailPanelBuilder
                     _window.ViewModel.SetUalInstalledAs(gameName, chosen, store);
                     if (hookedOriginal != null)
                     {
-                        _ = new ContentDialog
+                        _ = DialogService.ShowSafeAsync(new ContentDialog
                         {
                             Title = "Original DLL chained",
                             Content = $"The existing '{chosen}' was renamed to '{hookedOriginal}' so ASI Loader can chain-load it automatically.",
                             CloseButtonText = "OK",
                             XamlRoot = _window.Content.XamlRoot,
-                        }.ShowAsync();
+                        });
                     }
-                    _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+                    RequestExtrasRebuild(card);
                 }
                 else
                 {
@@ -254,7 +294,7 @@ public partial class DetailPanelBuilder
                 CloseButtonText = "Close",
                 XamlRoot = _window.Content.XamlRoot,
             };
-            await dlg.ShowAsync();
+            await DialogService.ShowSafeAsync(dlg);
         };
         Grid.SetColumn(cogBtn, 4);
         row.Children.Add(cogBtn);
@@ -280,7 +320,7 @@ public partial class DetailPanelBuilder
             if (string.IsNullOrEmpty(installPath)) return;
             ualSvc.Uninstall(card);
             _window.ViewModel.SetUalInstalledAs(gameName, null, store);
-            _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+            RequestExtrasRebuild(card);
         };
         Grid.SetColumn(removeBtn, 5);
         row.Children.Add(removeBtn);
@@ -377,17 +417,7 @@ public partial class DetailPanelBuilder
             IsHitTestVisible = !osGreyed,
         };
         installBtn.Content = WithInfoArrow(card.OsActionLabel, HasRealInfoContent(card, AddonType.OptiScaler), card.OsStatus == GameStatus.UpdateAvailable, installBtn);
-        installBtn.Click += async (s, e) =>
-        {
-            _window.InstallOsButton_Click(s, e);
-            // Poll until OsIsInstalling is done, then rebuild the panel
-            await Task.Run(async () =>
-            {
-                while (card.OsIsInstalling)
-                    await Task.Delay(100).ConfigureAwait(false);
-            });
-            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
-        };
+        installBtn.Click += (s, e) => _window.InstallOsButton_Click(s, e);
         Grid.SetColumn(installBtn, 3);
         row.Children.Add(installBtn);
 
@@ -430,13 +460,7 @@ public partial class DetailPanelBuilder
             IsHitTestVisible = osShow && !osGreyed,
         };
         ToolTipService.SetToolTip(deleteBtn, "Remove OptiScaler");
-        deleteBtn.Click += async (s, e) =>
-        {
-            _window.UninstallOsButton_Click(s, e);
-            // Uninstall is synchronous — rebuild immediately on next tick
-            await Task.Delay(50);
-            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
-        };
+        deleteBtn.Click += (s, e) => _window.UninstallOsButton_Click(s, e);
         Grid.SetColumn(deleteBtn, 5);
         row.Children.Add(deleteBtn);
 
@@ -576,7 +600,7 @@ public partial class DetailPanelBuilder
             XamlRoot = _window.Content.XamlRoot,
         };
 
-        await dialog.ShowAsync();
+        await DialogService.ShowSafeAsync(dialog);
         return chosen;
     }
 
@@ -745,7 +769,7 @@ public partial class DetailPanelBuilder
                 if (ok)
                 {
                     _window.ViewModel.SetRtx40MfgInstalled(gameName, true, store);
-                    _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+                    RequestExtrasRebuild(card);
                 }
                 else if (!mfgSvc.IsStagingReady)
                 {
@@ -804,7 +828,7 @@ public partial class DetailPanelBuilder
                 XamlRoot = _window.Content.XamlRoot,
                 RequestedTheme = ElementTheme.Dark,
             };
-            var result = await dlg.ShowAsync();
+            var result = await DialogService.ShowSafeAsync(dlg);
             if (result == ContentDialogResult.Primary)
                 _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/dashdogy/RTX40MFG-Unlock"));
         };
@@ -832,7 +856,7 @@ public partial class DetailPanelBuilder
             if (string.IsNullOrEmpty(installPath)) return;
             mfgSvc.Uninstall(installPath);
             _window.ViewModel.SetRtx40MfgInstalled(gameName, false, store);
-            _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+            RequestExtrasRebuild(card);
         };
         Grid.SetColumn(removeBtn, 5);
         row.Children.Add(removeBtn);

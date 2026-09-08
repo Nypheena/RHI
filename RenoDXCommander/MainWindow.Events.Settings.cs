@@ -1243,9 +1243,9 @@ public sealed partial class MainWindow
         ViewModel.SaveSettingsPublic();
         // Update jump list immediately
         if (ViewModel.Settings.RecentGamesMenu)
-            TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches);
+            _ = Task.Run(() => TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches));
         else
-            TrayIconService.ClearJumpList();
+            _ = Task.Run(() => TrayIconService.ClearJumpList());
     }
 
     private void StartWithWindowsCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

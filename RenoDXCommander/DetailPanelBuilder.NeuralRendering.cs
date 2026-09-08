@@ -44,7 +44,9 @@ public partial class DetailPanelBuilder
         // ── Detect current install state (off the UI thread — all File.Exists calls) ──
         _ = Task.Run(async () =>
         {
-            await _panelScanSemaphore.WaitAsync();
+            var scanToken = _panelScanCts.Token;
+            try { await _panelScanSemaphore.WaitAsync(scanToken).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
             try
             {
             bool dlss5Installed  = rdx5Svc.IsInstalledIn(installPath);
@@ -57,9 +59,11 @@ public partial class DetailPanelBuilder
             bool bridgePresent = File.Exists(Path.Combine(installPath, BridgeDeployFile));
             bool feederPresent = File.Exists(Path.Combine(installPath, card.Is32Bit ? FeederDeployFile32 : FeederDeployFile64));
 
-            _window.DispatcherQueue?.TryEnqueue(() =>
+            _window.DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
                 BuildNeuralRenderingSectionWithData(card, dlss5Installed, sfInstalled,
-                    nrDllPresent, nrDllOwnedByRhi, nrDllVersion, bridgePresent, feederPresent));
+                    nrDllPresent, nrDllOwnedByRhi, nrDllVersion, bridgePresent, feederPresent);
+            });
             }
             finally { _panelScanSemaphore.Release(); }
         });
@@ -234,7 +238,9 @@ public partial class DetailPanelBuilder
             // Gather all file I/O on a background thread, then update UI
             _ = Task.Run(async () =>
             {
-                await _panelScanSemaphore.WaitAsync();
+                var scanToken = _panelScanCts.Token;
+                try { await _panelScanSemaphore.WaitAsync(scanToken).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
                 try
                 {
                 bool d5i    = rdx5Svc.IsInstalledIn(installPath);
@@ -526,7 +532,7 @@ public partial class DetailPanelBuilder
                 CloseButtonText = "Cancel",
                 XamlRoot = _window.Content.XamlRoot,
             };
-            var result = await dlg.ShowAsync();
+            var result = await DialogService.ShowSafeAsync(dlg);
             if (result == ContentDialogResult.Primary && newEnabled != currentEnabled)
                 _window.ViewModel.SetSfAutoConfigEnabled(gameName, newEnabled, store);
         };
@@ -1510,14 +1516,20 @@ public partial class DetailPanelBuilder
             // are only used by Feeder games and have no other use in the standard shader picker.
             _window.DispatcherQueue?.TryEnqueue(() =>
             {
-                // Persist pack-level exclusions so SyncGameFolder uses them on every refresh
+                // Persist pack-level exclusions so SyncGameFolder uses them on every refresh.
+                // SetExcludedFiles calls _settingsLock.Wait() synchronously — offload to Task.Run
+                // so the UI thread isn't blocked while the lock may be held by a download.
                 var lumeniteAllFiles = _shaderPackService.GetPackShaderFiles(new[] { "LumeniteFX" })
-                    .Where(f => !f.Equals("lumenite_Kernel.fx", StringComparison.OrdinalIgnoreCase));
-                _shaderPackService.SetExcludedFiles("LumeniteFX", lumeniteAllFiles);
-
+                    .Where(f => !f.Equals("lumenite_Kernel.fx", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
                 var feederAllFiles = _shaderPackService.GetPackShaderFiles(new[] { "DLSS5Feeder" })
-                    .Where(f => !f.Equals("DLSS5_Feed.fx", StringComparison.OrdinalIgnoreCase));
-                _shaderPackService.SetExcludedFiles("DLSS5Feeder", feederAllFiles);
+                    .Where(f => !f.Equals("DLSS5_Feed.fx", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                _ = Task.Run(() =>
+                {
+                    _shaderPackService.SetExcludedFiles("LumeniteFX", lumeniteAllFiles);
+                    _shaderPackService.SetExcludedFiles("DLSS5Feeder", feederAllFiles);
+                });
 
                 var gameKey = Models.GameKey.From(card.GameName, card.Source ?? "").ToKey();
                 var current = _gameNameService.PerGameShaderSelection.TryGetValue(gameKey, out var sel)

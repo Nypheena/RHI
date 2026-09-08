@@ -1,10 +1,34 @@
 
 ## v2.6.7
 
+### Changes
+
+- ReShade uninstall now preserves `reshade.log` in the game folder.
+- ReShade config files are now deployed to game folders as `ReShade.ini` instead of `reshade.ini`.
+- Neural Rendering DLL selection simplified to 310.8.2 — ShortFuse's modified build with support for all RTX GPUs (20/30/40/50 series).
+- Added tooltips to the DLSS SR, RR, FG, and Streamline version dropdowns explaining that selecting a version copies it into the game folder, what Default and Custom do, and how NVIDIA Override works.
+
 ### Bug Fixes
 
-- Fixed Custom render scale in DLSS & Streamline Defaults having no way to input a percentage — selecting Custom now shows an inline text box for entering a value (33–100%).
-- Fixed ReShade uninstall deleting `reshade.log` — the log is now preserved on uninstall.
+- Fixed Custom render scale in DLSS & Streamline Defaults — selecting "Custom" now shows a text box so you can type in a specific percentage (33–100%).
+- Fixed an intermittent UI freeze where the window would stay active (moveable, minimisable) but all buttons and controls stopped responding. This could happen when opening cogs, install dialogs, or other popups while a background dialog was already showing. Affects the Luma Settings cog, ASI Loader cog, ShortFuse settings, RTX 40 MFG cog, and install warning prompts.
+- Fixed a freeze that could occur when an app update was found while the "Checking for updates…" progress dialog was open — the update dialog would silently block for up to 10 seconds.
+- Fixed a brief freeze when RHI updated the taskbar jump list after launching a game or changing the Recent Games setting — the update now runs in the background.
+- Fixed the Batch Deploy DLSS dialog occasionally leaving a ghost overlay that blocked all input after finishing quickly.
+- Fixed a flicker where the entire Overrides panel disappeared and rebuilt itself when changing a DLSS version, preset, render scale, or driver override — now only the NVIDIA Profile section refreshes.
+- Fixed a freeze that could occur when changing a DLSS version and clicking a section header at the same time.
+- Fixed the NVIDIA Profile Overrides section briefly going blank when selecting a game or installing OptiScaler — the section now shows immediately using cached values and updates silently in the background.
+- Fixed changing the Vulkan ReShade channel (Stable/Nightly/Custom) blocking the UI for up to 10 seconds while copying files to `C:\ProgramData\ReShade\`.
+- Fixed the OptiScaler cog potentially rebuilding off the UI thread when switching between Stable and Nightly variants, or after applying a preset — could cause a freeze in certain timing conditions.
+- Fixed OptiScaler install and uninstall progress not showing in the Extras section — the progress bar and status message now appear directly below the OptiScaler row where they belong. *(Thanks Sapphire)*
+- Fixed installing or removing ASI Loader and RTX 40 MFG Unlock resetting the Extras panel scroll position.
+- Fixed the drop helper window appearing as a separate entry in the taskbar and Alt+Tab switcher. *(Thanks Owen)*
+- Fixed an intermittent UI freeze when rapidly clicking through games — the NVIDIA Profile section's background scans now run at low priority so they can't block pointer input, and the DLSS/driver rows are rebuilt atomically instead of element-by-element.
+
+### Manifest Updates
+
+- Grand Theft Auto V Enhanced: added a ReShade install warning about the DirectStorage incompatibility that causes "Unable to save configuration" errors, with a link to the DirectStorageFix and a note to use an older ReShade version as an alternative.
+- Satisfactory: added Frame Generation setup instructions — the Engine.ini keys needed to enable DLSS FG in Satisfactory are now shown in the ReShade info button.
 
 ---
 

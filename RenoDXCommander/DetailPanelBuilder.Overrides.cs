@@ -41,6 +41,12 @@ public partial class DetailPanelBuilder
         // _dragging = true from blocking pointer events on the rebuilt panel.
         if (_dragging) DragEnd(save: false);
 
+        // Cancel any in-flight NVAPI background scans from the previous game.
+        // Tasks waiting on _panelScanSemaphore will observe the cancellation and
+        // bail out immediately, freeing their thread pool threads.
+        _panelScanCts.Cancel();
+        _panelScanCts = new CancellationTokenSource();
+
         _window.OverridesPanel.Children.Clear();
         _window.OverridesHeaderRow.Children.Clear();
 

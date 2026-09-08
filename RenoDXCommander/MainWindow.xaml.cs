@@ -152,7 +152,7 @@ public sealed partial class MainWindow : Window
         if (ViewModel.Settings.RecentGamesMenu && ViewModel.Settings.RecentLaunches.Count > 0)
         {
             _crashReporter.Log($"[MainWindow] Updating jump list with {ViewModel.Settings.RecentLaunches.Count} games");
-            TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches);
+            _ = Task.Run(() => TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches));
         }
         else
         {
@@ -333,7 +333,7 @@ public sealed partial class MainWindow : Window
         
         // Update jump list if enabled
         if (ViewModel.Settings.RecentGamesMenu && ViewModel.Settings.RecentLaunches.Count > 0)
-            TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches);
+            _ = Task.Run(() => TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches));
     }
 
     private void MainWindow_Activated(object? sender, WindowActivatedEventArgs e)
@@ -449,18 +449,8 @@ public sealed partial class MainWindow : Window
             while (ViewModel.IsLoading)
                 await Task.Delay(200);
 
-            DispatcherQueue?.TryEnqueue(async () =>
-            {
-                try
-                {
-                    NativeInterop.SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
-                    await ViewModel.HandleNxmLinkAsync(link);
-                }
-                catch (Exception ex)
-                {
-                    _crashReporter.Log($"[MainWindow.HandleNxmUrl] HandleNxmLinkAsync failed — {ex.Message}");
-                }
-            });
+            DispatcherQueue?.TryEnqueue(() => NativeInterop.SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)));
+            DispatcherQueue?.TryEnqueue(() => _ = ViewModel.HandleNxmLinkAsync(link));
         });
     }
 
@@ -602,10 +592,10 @@ public sealed partial class MainWindow : Window
                                     PopulateDetailPanel(target);
                                     DetailPanel.Visibility = Visibility.Visible;
                                     BuildOverridesPanel(target);
-                                    OverridesContainer.Visibility = Visibility.Visible;
-                                    NeuralRenderingContainer.Visibility = Visibility.Visible;
-                                    NvidiaProfileContainer.Visibility = Visibility.Visible;
-                                    ManagementContainer.Visibility = Visibility.Visible;
+                                    if (OverridesContainer.Visibility != Visibility.Visible)        OverridesContainer.Visibility = Visibility.Visible;
+                                    if (NeuralRenderingContainer.Visibility != Visibility.Visible)  NeuralRenderingContainer.Visibility = Visibility.Visible;
+                                    if (NvidiaProfileContainer.Visibility != Visibility.Visible)    NvidiaProfileContainer.Visibility = Visibility.Visible;
+                                    if (ManagementContainer.Visibility != Visibility.Visible)       ManagementContainer.Visibility = Visibility.Visible;
                                     _detailPanelBuilder.ApplySectionOrder();
                                 }
                                 else if (ViewModel.CurrentViewLayout == ViewLayout.Compact)
