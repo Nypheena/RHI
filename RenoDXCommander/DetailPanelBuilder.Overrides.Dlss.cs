@@ -35,6 +35,10 @@ public partial class DetailPanelBuilder
         var versionLabel = new TextBlock { Text = "Version", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Thickness(0, 2, 0, 0) };
         if (driverOverrideActive)
             ToolTipService.SetToolTip(versionLabel, "NVIDIA Override is active — the driver is injecting its own DLL for this game.");
+        else if (onDriverOverrideToggled != null)
+            ToolTipService.SetToolTip(versionLabel, "Select a specific DLL version to swap, or choose \"NVIDIA Override\" to let the driver inject its own latest version for this game (equivalent to enabling DLSS Override in NVIDIA App or Profile Inspector).");
+        else
+            ToolTipService.SetToolTip(versionLabel, "Select a specific DLL version to swap into the game folder, or Default to restore the original.");
         col.Children.Add(versionLabel);
 
         // Build items list with (Default) marker on the game's original/default version
