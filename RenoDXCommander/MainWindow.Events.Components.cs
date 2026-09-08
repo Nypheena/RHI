@@ -2116,7 +2116,13 @@ public sealed partial class MainWindow
                 try { _optiScalerService.Uninstall(card); card.NotifyAll(); }
                 catch (Exception ex) { CrashReporter.Log($"[OsCog] Uninstall on channel switch — {ex.Message}"); }
             }
-            DispatcherQueue.TryEnqueue(async () => { osCogDialog?.Hide(); await Task.Delay(80); OsCogButton_Click(sender, e); });
+            // Use DispatcherTimer for the delay — TryEnqueue(async lambda) detaches after the first
+            // await, causing OsCogButton_Click to build WinUI elements off the UI thread (freeze risk).
+            // DispatcherTimer.Tick always fires on the UI thread, so the rebuild is guaranteed safe.
+            osCogDialog?.Hide();
+            var rebuildTimer1 = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
+            rebuildTimer1.Tick += (_, _) => { rebuildTimer1.Stop(); OsCogButton_Click(sender, e); };
+            rebuildTimer1.Start();
         };
 
         bool isNightly = ViewModel.GetOsVariant(card.GameName, card.Source ?? "") == "Nightly";
@@ -2682,8 +2688,12 @@ public sealed partial class MainWindow
                         }
                     }
 
-                    // Rebuild the dialog to reflect applied settings
-                    DispatcherQueue.TryEnqueue(async () => { osCogDialog?.Hide(); await Task.Delay(80); OsCogButton_Click(sender, e); });
+                    // Use DispatcherTimer for the delay — TryEnqueue(async lambda) detaches after the first
+                    // await, causing OsCogButton_Click to build WinUI elements off the UI thread (freeze risk).
+                    osCogDialog?.Hide();
+                    var rebuildTimer2 = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
+                    rebuildTimer2.Tick += (_, _) => { rebuildTimer2.Stop(); OsCogButton_Click(sender, e); };
+                    rebuildTimer2.Start();
                 };
 
                 slotPanel.Children.Add(nameRowGrid);
