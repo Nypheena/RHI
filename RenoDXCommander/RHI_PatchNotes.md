@@ -9,6 +9,9 @@
 - Fixed a secondary UI freeze path where the app update check could block the WinUI dispatcher queue for up to 10 seconds when an update was found while the "Checking for updates…" progress dialog was open.
 - Fixed taskbar jump list update (on game launch and settings changes) running synchronous COM calls on the UI thread — now offloaded to a background thread.
 - Fixed Batch Deploy DLSS progress dialog occasionally leaving a ghost modal overlay when finishing quickly — replaced fire-and-forget dialog pattern with an explicit gate acquire/release.
+- Fixed patch notes and MOTD dialogs holding the WinUI dispatcher queue slot for the full dialog duration — replaced `TryEnqueue(async lambda)` with non-blocking fire-and-forget pattern.
+- Fixed Vulkan ReShade channel change (Custom/Stable/Nightly) blocking the UI thread for up to 10 seconds while elevated file copy to `C:\ProgramData\ReShade\` ran synchronously — now offloaded to `Task.Run`.
+- Fixed NXM protocol handler holding the WinUI dispatcher queue slot for the full mod download and install duration — now uses non-blocking fire-and-forget pattern.
 
 ---
 

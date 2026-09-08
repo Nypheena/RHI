@@ -449,18 +449,8 @@ public sealed partial class MainWindow : Window
             while (ViewModel.IsLoading)
                 await Task.Delay(200);
 
-            DispatcherQueue?.TryEnqueue(async () =>
-            {
-                try
-                {
-                    NativeInterop.SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
-                    await ViewModel.HandleNxmLinkAsync(link);
-                }
-                catch (Exception ex)
-                {
-                    _crashReporter.Log($"[MainWindow.HandleNxmUrl] HandleNxmLinkAsync failed — {ex.Message}");
-                }
-            });
+            DispatcherQueue?.TryEnqueue(() => NativeInterop.SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)));
+            DispatcherQueue?.TryEnqueue(() => _ = ViewModel.HandleNxmLinkAsync(link));
         });
     }
 

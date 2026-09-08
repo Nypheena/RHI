@@ -208,17 +208,7 @@ public partial class DialogService
                 CrashReporter.Log($"[DialogService.ShowPatchNotesIfNewVersionAsync] Failed to write patch notes marker — {ex.Message}");
             }
 
-            _dispatcherQueue.TryEnqueue(async () =>
-            {
-                try
-                {
-                    await ShowPatchNotesDialogAsync();
-                }
-                catch (Exception ex)
-                {
-                    CrashReporter.Log($"[DialogService.ShowPatchNotesIfNewVersionAsync] Patch notes dialog failed — {ex.Message}");
-                }
-            });
+            _dispatcherQueue.TryEnqueue(() => _ = ShowPatchNotesDialogAsync());
         }
         catch (Exception ex)
         {
@@ -286,14 +276,7 @@ public partial class DialogService
             var motd = await Services.MotdService.CheckAsync(ViewModel.HttpClient);
             if (motd == null) return;
 
-            _dispatcherQueue.TryEnqueue(async () =>
-            {
-                try
-                {
-                    await ShowMotdContentAsync(motd);
-                }
-                catch (Exception ex) { CrashReporter.Log($"[DialogService.ShowMotdIfNewAsync] Dialog failed — {ex.Message}"); }
-            });
+            _dispatcherQueue.TryEnqueue(() => _ = ShowMotdContentAsync(motd));
         }
         catch (Exception ex)
         {
