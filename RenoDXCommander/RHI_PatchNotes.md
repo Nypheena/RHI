@@ -13,7 +13,7 @@
 - Fixed Vulkan ReShade channel change (Custom/Stable/Nightly) blocking the UI thread for up to 10 seconds while elevated file copy to `C:\ProgramData\ReShade\` ran synchronously — now offloaded to `Task.Run`.
 - Fixed OptiScaler variant change (Stable → Nightly) and preset Apply button in the OptiScaler cog potentially building the rebuilt dialog off the UI thread — replaced `TryEnqueue(async lambda)` with `DispatcherTimer` so the rebuild always runs on the UI thread.
 - Fixed DLSS/Streamline version and preset changes causing a visible flicker where the entire overrides panel disappeared and rebuilt — only the NVIDIA Profile section now rebuilds when changing DLSS versions, presets, render scale, or driver overrides.
-- Fixed NVIDIA Profile Overrides section vanishing briefly on game selection and on OptiScaler install — a loading indicator now shows immediately while NVAPI values are fetched in the background, so the section header and body stay visible throughout.
+- Fixed NVIDIA Profile Overrides section vanishing briefly on game selection and on OptiScaler install — values are now cached on the card after the first NVAPI scan. Subsequent game selections render the section immediately with cached values, then silently update in-place when the fresh scan completes.
 
 ---
 

@@ -73,21 +73,7 @@ public partial class DetailPanelBuilder
         // Store the body panel so BuildDriverProfileSection can append to it
         _nvBodyPanel = nvBody;
 
-        // Show a loading indicator immediately so the section doesn't appear empty during the scan
-        if (!nvCollapsed)
-        {
-            var loadingRing = new ProgressRing
-            {
-                IsActive = true,
-                Width = 16,
-                Height = 16,
-                Margin = new Thickness(0, 4, 0, 4),
-                HorizontalAlignment = HorizontalAlignment.Left,
-            };
-            nvBody.Children.Add(loadingRing);
-        }
-
-        // Fetch all NVAPI/preset values off the UI thread, then build the body on dispatcher
+        // Capture card state before the immediate render and the background scan
         var gameName   = card.GameName;
         var installPath = card.InstallPath ?? "";
         var gameSource  = card.Source ?? "";
@@ -98,6 +84,31 @@ public partial class DetailPanelBuilder
         var hasStreamline = card.HasStreamline;
         var hasDlssnr   = card.HasDlssnr;
         var capturedCard = card;
+
+        // Render immediately from cached data (if available) so the panel appears fully populated
+        // without waiting for the background NVAPI scan. On first visit, card.CachedNvidiaProfileValid
+        // is false, so null is passed and all combos show "Default" (same as the old ProgressRing state).
+        if (!nvCollapsed)
+        {
+            DlssProfileData? cachedDlssData = card.CachedNvidiaProfileValid
+                ? new DlssProfileData(
+                    SrDriverOverride: card.CachedSrDriverOverride,
+                    RrDriverOverride: card.CachedRrDriverOverride,
+                    FgDriverOverride: card.CachedFgDriverOverride,
+                    NrDriverOverride: card.CachedNrDriverOverride,
+                    SrPreset:         card.CachedSrPreset,
+                    RrPreset:         card.CachedRrPreset,
+                    FgPreset:         card.CachedFgPreset,
+                    NrPreset:         card.CachedNrPreset,
+                    SrRenderScale:    card.CachedSrRenderScale,
+                    RrRenderScale:    card.CachedRrRenderScale,
+                    MfgMode:          card.CachedMfgMode)
+                : null;
+            BuildNvidiaProfileBody(card, capturedName, nvBody, cachedDlssData,
+                hasDlss, hasDlssd, hasDlssg, hasStreamline, hasDlssnr);
+        }
+
+        // Fetch all NVAPI/preset values off the UI thread, then build the body on dispatcher
 
         _ = Task.Run(async () =>
         {
@@ -134,6 +145,14 @@ public partial class DetailPanelBuilder
                 if (current == null || !current.GameName.Equals(gameName, StringComparison.OrdinalIgnoreCase)
                     || current.Source != gameSource)
                     return;
+
+                // Save live DLSS values to card cache so the next selection renders immediately
+                if (dlssData != null)
+                    capturedCard.UpdateCachedDlssProfile(
+                        dlssData.SrDriverOverride, dlssData.RrDriverOverride,
+                        dlssData.FgDriverOverride, dlssData.NrDriverOverride,
+                        dlssData.SrPreset, dlssData.RrPreset, dlssData.FgPreset, dlssData.NrPreset,
+                        dlssData.SrRenderScale, dlssData.RrRenderScale, dlssData.MfgMode);
 
                 BuildNvidiaProfileBody(capturedCard, capturedName, nvBody, dlssData,
                     hasDlss, hasDlssd, hasDlssg, hasStreamline, hasDlssnr);

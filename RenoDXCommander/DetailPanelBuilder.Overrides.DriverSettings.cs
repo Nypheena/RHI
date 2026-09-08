@@ -57,6 +57,35 @@ public partial class DetailPanelBuilder
         var svc = nvidiaPresetService;
         var nvBodySnapshot = _nvBodyPanel;
 
+        // Create a dedicated container for the driver profile section.
+        // This lets us replace only the driver content when the live scan completes,
+        // without touching the DLSS rows above it in nvBodySnapshot.
+        var driverContainer = new StackPanel();
+        nvBodySnapshot?.Children.Add(driverContainer);
+
+        // Render immediately from cached driver profile data if available.
+        // BuildNvidiaProfileBody already called us synchronously (from the cached or live path),
+        // so nvBodySnapshot has the DLSS content — we just populate driverContainer.
+        if (nvidiaPresetService.IsSupported && card.CachedNvidiaProfileValid)
+        {
+            var cachedData = new DriverProfileData(
+                VSyncMode:                  card.CachedVSyncMode,
+                GlobalVSyncMode:            card.CachedGlobalVSyncMode,
+                VSyncTearControl:           card.CachedVSyncTearControl,
+                LowLatencyMode:             card.CachedLowLatencyMode,
+                SmoothMotionEnable:         card.CachedSmoothMotionEnable,
+                SmoothMotionApis:           card.CachedSmoothMotionApis,
+                SmoothMotionFlipPacingFs:   card.CachedSmoothMotionFlipPacingFs,
+                PowerManagementMode:        card.CachedPowerManagementMode,
+                PerGameGSyncEnabled:        card.CachedPerGameGSyncEnabled,
+                ReBarSizeLimit:             card.CachedReBarSizeLimit,
+                ReBarEnableMode:            card.CachedReBarEnableMode,
+                ReBarMode:                  card.CachedReBarMode,
+                GlobalReBarSizeLimit:       card.CachedGlobalReBarSizeLimit,
+                IsAdmin:                    VulkanLayerService.IsRunningAsAdmin());
+            BuildDriverProfileSectionWithData(card, capturedName, nvidiaPresetService, driverContainer, cachedData);
+        }
+
         // Fetch all NVAPI values off the UI thread, then build UI synchronously on dispatcher
         _ = Task.Run(async () =>
         {
@@ -93,7 +122,18 @@ public partial class DetailPanelBuilder
                     || currentCard.Source != gameSource)
                     return;
 
-                BuildDriverProfileSectionWithData(targetCard, capturedName, svc, nvBodySnapshot, data);
+                // Save live driver profile values to card cache so the next selection renders immediately
+                targetCard.UpdateCachedDriverProfile(
+                    data.VSyncMode, data.GlobalVSyncMode, data.VSyncTearControl,
+                    data.LowLatencyMode, data.SmoothMotionEnable, data.SmoothMotionApis,
+                    data.SmoothMotionFlipPacingFs, data.PowerManagementMode,
+                    data.PerGameGSyncEnabled, data.ReBarSizeLimit,
+                    data.ReBarEnableMode, data.ReBarMode, data.GlobalReBarSizeLimit);
+
+                // Replace driver section content in-place using the dedicated driver container,
+                // so the live DLSS content already in nvBodySnapshot is preserved.
+                driverContainer.Children.Clear();
+                BuildDriverProfileSectionWithData(targetCard, capturedName, svc, driverContainer, data);
             });
         });
     }
