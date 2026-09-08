@@ -96,8 +96,14 @@ public partial class DetailPanelBuilder
                 || _window.ViewModel.SelectedGame?.Source != gameSource)
                 return;
 
-            try { await _panelScanSemaphore.WaitAsync(scanToken).ConfigureAwait(false); }
-            catch (OperationCanceledException) { return; }
+            bool acquired = false;
+            for (int attempt = 0; attempt < 10 && !scanToken.IsCancellationRequested; attempt++)
+            {
+                if (_panelScanSemaphore.Wait(0)) { acquired = true; break; }
+                try { await Task.Delay(50, scanToken).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
+            }
+            if (!acquired) return;
             DriverProfileData? data = null;
             try
             {
