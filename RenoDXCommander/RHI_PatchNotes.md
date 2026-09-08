@@ -5,7 +5,7 @@
 
 - ReShade uninstall now preserves `reshade.log` in the game folder.
 - ReShade config files are now deployed to game folders as `ReShade.ini` instead of `reshade.ini`.
-- Neural Rendering DLL updated to 310.8.2.
+- Removed older Neural Rendering DLL versions — only 310.8.2 remains.
 - Added tooltips to the DLSS SR, RR, FG, and Streamline version dropdowns explaining that selecting a version copies it into the game folder, what Default and Custom do, and how NVIDIA Override works.
 
 ### Bug Fixes
