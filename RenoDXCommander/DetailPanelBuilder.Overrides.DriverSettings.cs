@@ -630,7 +630,7 @@ public partial class DetailPanelBuilder
             nvidiaGrid.Children.Add(rebarCol);
             nvidiaGrid.Children.Add(MakeDlssDivider(3));
 
-            (_nvBodyPanel ?? _window.NvidiaProfilePanel).Children.Add(nvidiaGrid);
+            (nvBody ?? _window.NvidiaProfilePanel).Children.Add(nvidiaGrid);
         }
 
         // Admin notice at the bottom of the Nvidia Profile section
