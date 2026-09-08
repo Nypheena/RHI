@@ -89,6 +89,12 @@ public partial class DetailPanelBuilder
         // Fetch all NVAPI values off the UI thread, then build UI synchronously on dispatcher
         _ = Task.Run(async () =>
         {
+            // Skip if the user navigated away before we even acquire the semaphore —
+            // the cached render is already showing; no need to do the NVAPI scan.
+            if (_window.ViewModel.SelectedGame?.GameName.Equals(gameName, StringComparison.OrdinalIgnoreCase) != true
+                || _window.ViewModel.SelectedGame?.Source != gameSource)
+                return;
+
             await _panelScanSemaphore.WaitAsync().ConfigureAwait(false);
             DriverProfileData? data = null;
             try
