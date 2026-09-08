@@ -73,20 +73,19 @@ public partial class DetailPanelBuilder
         // Store the body panel so BuildDriverProfileSection can append to it
         _nvBodyPanel = nvBody;
 
-        // Show a skeleton placeholder that matches the approximate height of the real content.
-        // This keeps the section visible and prevents layout jitter while the NVAPI scan runs.
-        // BuildNvidiaProfileBody clears it and replaces with real content when ready.
+        // Show a loading indicator immediately so the section doesn't appear empty during the scan
         if (!nvCollapsed)
         {
-            nvBody.Children.Add(new Border
+            var loadingRing = new ProgressRing
             {
-                Height = 120,
-                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
-            });
+                IsActive = true,
+                Width = 16,
+                Height = 16,
+                Margin = new Thickness(0, 4, 0, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            nvBody.Children.Add(loadingRing);
         }
-
-        // Keep the container visible — it stays visible throughout
-        _window.NvidiaProfileContainer.Visibility = Visibility.Visible;
 
         // Fetch all NVAPI/preset values off the UI thread, then build the body on dispatcher
         var gameName   = card.GameName;
