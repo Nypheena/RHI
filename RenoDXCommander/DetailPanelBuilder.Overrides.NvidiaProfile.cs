@@ -118,17 +118,9 @@ public partial class DetailPanelBuilder
                 || _window.ViewModel.SelectedGame?.Source != gameSource)
                 return;
 
-            // Try to acquire non-blocking first. If the slot is taken (a previous scan is still
-            // running its NVAPI reads), keep trying briefly — but bail immediately if the token
-            // is cancelled (user navigated away) or after a short timeout (show cached values only).
-            bool acquired = false;
-            for (int attempt = 0; attempt < 10 && !scanToken.IsCancellationRequested; attempt++)
-            {
-                if (_panelScanSemaphore.Wait(0)) { acquired = true; break; }
-                try { await Task.Delay(50, scanToken).ConfigureAwait(false); }
-                catch (OperationCanceledException) { return; }
-            }
-            if (!acquired) return; // Previous scan still running — cached values already showing, skip live update
+            // Try to acquire non-blocking. If the slot is taken (a previous scan is still running
+            // its NVAPI reads), skip the live update — cached values are already showing.
+            if (!_panelScanSemaphore.Wait(0)) return;
             DlssProfileData? dlssData = null;
             try
             {
