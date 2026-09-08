@@ -240,19 +240,20 @@ public static class DlssDefaultsDialog
         };
     }
 
-    private static ComboBox BuildRenderScaleComboBox(uint currentDefault)
+    private static StackPanel BuildRenderScaleComboBox(uint currentDefault)
     {
         var options = DlssPresetService.RenderScaleOptions;
         var items = options.Select(o => o.Name).ToList();
 
         int selectedIdx = 0;
-        if (currentDefault != 0)
+        if (currentDefault > 0)
         {
             var idx = Array.FindIndex(options, o => o.Value == currentDefault);
             if (idx >= 0) selectedIdx = idx;
+            else selectedIdx = items.Count - 1; // Custom
         }
 
-        return new ComboBox
+        var combo = new ComboBox
         {
             ItemsSource = items,
             SelectedIndex = selectedIdx,
@@ -260,6 +261,53 @@ public static class DlssDefaultsDialog
             HorizontalAlignment = HorizontalAlignment.Stretch,
             CornerRadius = new CornerRadius(6),
         };
+
+        // Inline TextBox shown when "Custom" is selected
+        var customBox = new TextBox
+        {
+            PlaceholderText = "33–100",
+            FontSize = 11,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MaxLength = 3,
+            Visibility = (selectedIdx == items.Count - 1 && currentDefault > 0)
+                ? Microsoft.UI.Xaml.Visibility.Visible
+                : Microsoft.UI.Xaml.Visibility.Collapsed,
+        };
+        if (currentDefault > 0 && selectedIdx == items.Count - 1)
+            customBox.Text = currentDefault.ToString();
+
+        combo.SelectionChanged += (s, e) =>
+        {
+            customBox.Visibility = combo.SelectedItem as string == "Custom"
+                ? Microsoft.UI.Xaml.Visibility.Visible
+                : Microsoft.UI.Xaml.Visibility.Collapsed;
+        };
+
+        var panel = new StackPanel { Spacing = 4, Tag = "RenderScalePanel" };
+        panel.Children.Add(combo);
+        panel.Children.Add(customBox);
+        return panel;
+    }
+
+    private static uint GetSelectedRenderScale(StackPanel panel)
+    {
+        var combo   = panel.Children.OfType<ComboBox>().FirstOrDefault();
+        var textBox = panel.Children.OfType<TextBox>().FirstOrDefault();
+        if (combo == null) return 0;
+
+        var options = DlssPresetService.RenderScaleOptions;
+        var selected = combo.SelectedItem as string;
+
+        if (selected == "Custom")
+        {
+            if (textBox != null && uint.TryParse(textBox.Text, out var val) && val >= 33 && val <= 100)
+                return val;
+            return 0;
+        }
+
+        var idx = combo.SelectedIndex;
+        if (idx >= 0 && idx < options.Length) return options[idx].Value;
+        return 0;
     }
 
     private static string GetSelectedVersion(ComboBox combo)
@@ -272,14 +320,6 @@ public static class DlssDefaultsDialog
     {
         var idx = combo.SelectedIndex;
         if (idx >= 0 && idx < presets.Length) return presets[idx].Value;
-        return 0;
-    }
-
-    private static uint GetSelectedRenderScale(ComboBox combo)
-    {
-        var options = DlssPresetService.RenderScaleOptions;
-        var idx = combo.SelectedIndex;
-        if (idx >= 0 && idx < options.Length) return options[idx].Value;
         return 0;
     }
 }

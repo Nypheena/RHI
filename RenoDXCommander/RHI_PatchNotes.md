@@ -1,4 +1,13 @@
 
+## v2.6.7
+
+### Bug Fixes
+
+- Fixed Custom render scale in DLSS & Streamline Defaults having no way to input a percentage — selecting Custom now shows an inline text box for entering a value (33–100%).
+- Fixed ReShade uninstall deleting `reshade.log` — the log is now preserved on uninstall.
+
+---
+
 ## v2.6.6
 
 ### Bug Fixes

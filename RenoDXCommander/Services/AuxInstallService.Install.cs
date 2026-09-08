@@ -408,7 +408,7 @@ public partial class AuxInstallService
             && (record.AddonType == TypeReShade || record.AddonType == TypeReShadeNormal))
         {
             var installDir = record.InstallPath;
-            foreach (var file in new[] { "reshade.ini", "ReShade2.ini", "ReShadePreset.ini", "reshade.log" })
+            foreach (var file in new[] { "reshade.ini", "ReShade2.ini", "ReShadePreset.ini" })
             {
                 var filePath = Path.Combine(installDir, file);
                 if (File.Exists(filePath))
