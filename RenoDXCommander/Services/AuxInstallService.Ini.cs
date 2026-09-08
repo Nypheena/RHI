@@ -21,7 +21,7 @@ public partial class AuxInstallService
         if (!File.Exists(templatePath))
             throw new FileNotFoundException("reshade.ini not found in inis folder.", templatePath);
 
-        var gamePath = Path.Combine(gameDir, "reshade.ini");
+        var gamePath = Path.Combine(gameDir, "ReShade.ini");
 
         if (!File.Exists(gamePath))
         {
@@ -115,7 +115,7 @@ public partial class AuxInstallService
         if (!File.Exists(templatePath))
             throw new FileNotFoundException("Neither reshade.vulkan.ini nor reshade.ini found in inis folder.", templatePath);
 
-        var gamePath = Path.Combine(gameDir, "reshade.ini");
+        var gamePath = Path.Combine(gameDir, "ReShade.ini");
 
         if (!File.Exists(gamePath))
         {
@@ -251,7 +251,7 @@ public partial class AuxInstallService
     {
         if (!File.Exists(RsIniPath))
             throw new FileNotFoundException("reshade.ini not found in inis folder.", RsIniPath);
-        File.Copy(RsIniPath, Path.Combine(gameDir, "reshade.ini"), overwrite: true);
+        File.Copy(RsIniPath, Path.Combine(gameDir, "ReShade.ini"), overwrite: true);
     }
 
     /// <summary>
