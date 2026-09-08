@@ -19,11 +19,9 @@ public partial class DlssPresetService
             var profile = FindProfile(gameName, installPath);
             if (profile == null) return 0;
 
-            var setting = profile.Settings.FirstOrDefault(s => s.SettingId == settingId);
-            if (setting?.CurrentValue is uint value)
-                return value;
-
-            // Fallback: try raw NVAPI for newer settings not visible through NvAPIWrapper
+            // Always use raw NVAPI for reads — NvAPIWrapper's profile.Settings collection
+            // holds stale values from session load and is NOT updated after SetSetting writes.
+            // Raw NVAPI reads directly from the live in-memory session state.
             var sessionHandle = GetHandlePtr(_session.Handle);
             var profileHandle = GetHandlePtr(profile.Handle);
             if (sessionHandle != IntPtr.Zero && profileHandle != IntPtr.Zero)
