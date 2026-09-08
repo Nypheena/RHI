@@ -257,7 +257,7 @@ public partial class DetailPanelBuilder
                             XamlRoot = _window.Content.XamlRoot,
                         });
                     }
-                    _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+                    RequestExtrasRebuild(card);
                 }
                 else
                 {
@@ -320,7 +320,7 @@ public partial class DetailPanelBuilder
             if (string.IsNullOrEmpty(installPath)) return;
             ualSvc.Uninstall(card);
             _window.ViewModel.SetUalInstalledAs(gameName, null, store);
-            _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+            RequestExtrasRebuild(card);
         };
         Grid.SetColumn(removeBtn, 5);
         row.Children.Add(removeBtn);
@@ -769,7 +769,7 @@ public partial class DetailPanelBuilder
                 if (ok)
                 {
                     _window.ViewModel.SetRtx40MfgInstalled(gameName, true, store);
-                    _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+                    RequestExtrasRebuild(card);
                 }
                 else if (!mfgSvc.IsStagingReady)
                 {
@@ -856,7 +856,7 @@ public partial class DetailPanelBuilder
             if (string.IsNullOrEmpty(installPath)) return;
             mfgSvc.Uninstall(installPath);
             _window.ViewModel.SetRtx40MfgInstalled(gameName, false, store);
-            _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
+            RequestExtrasRebuild(card);
         };
         Grid.SetColumn(removeBtn, 5);
         row.Children.Add(removeBtn);
