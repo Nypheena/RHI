@@ -1510,14 +1510,20 @@ public partial class DetailPanelBuilder
             // are only used by Feeder games and have no other use in the standard shader picker.
             _window.DispatcherQueue?.TryEnqueue(() =>
             {
-                // Persist pack-level exclusions so SyncGameFolder uses them on every refresh
+                // Persist pack-level exclusions so SyncGameFolder uses them on every refresh.
+                // SetExcludedFiles calls _settingsLock.Wait() synchronously — offload to Task.Run
+                // so the UI thread isn't blocked while the lock may be held by a download.
                 var lumeniteAllFiles = _shaderPackService.GetPackShaderFiles(new[] { "LumeniteFX" })
-                    .Where(f => !f.Equals("lumenite_Kernel.fx", StringComparison.OrdinalIgnoreCase));
-                _shaderPackService.SetExcludedFiles("LumeniteFX", lumeniteAllFiles);
-
+                    .Where(f => !f.Equals("lumenite_Kernel.fx", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
                 var feederAllFiles = _shaderPackService.GetPackShaderFiles(new[] { "DLSS5Feeder" })
-                    .Where(f => !f.Equals("DLSS5_Feed.fx", StringComparison.OrdinalIgnoreCase));
-                _shaderPackService.SetExcludedFiles("DLSS5Feeder", feederAllFiles);
+                    .Where(f => !f.Equals("DLSS5_Feed.fx", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                _ = Task.Run(() =>
+                {
+                    _shaderPackService.SetExcludedFiles("LumeniteFX", lumeniteAllFiles);
+                    _shaderPackService.SetExcludedFiles("DLSS5Feeder", feederAllFiles);
+                });
 
                 var gameKey = Models.GameKey.From(card.GameName, card.Source ?? "").ToKey();
                 var current = _gameNameService.PerGameShaderSelection.TryGetValue(gameKey, out var sel)

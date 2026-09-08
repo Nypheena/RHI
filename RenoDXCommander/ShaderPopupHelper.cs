@@ -1091,7 +1091,11 @@ public static class ShaderPopupHelper
             return null;
 
         // ── Build confirmed selection and persist per-file exclusions ─────────
+        // SetExcludedFiles calls _settingsLock.Wait() synchronously — offload to background
+        // thread so the UI thread isn't blocked while the lock may be held by a download.
         var confirmed = new List<string>();
+        var exclusionsToWrite = new List<(string Id, IEnumerable<string> Excluded)>();
+
         foreach (var (id, box) in checkBoxes)
         {
             if (box.IsChecked == false) continue;
@@ -1099,7 +1103,7 @@ public static class ShaderPopupHelper
 
             if (!fileCheckBoxes.TryGetValue(id, out var fcList) || fcList.Count == 0)
             {
-                shaderPackService.SetExcludedFiles(id, Array.Empty<string>());
+                exclusionsToWrite.Add((id, Array.Empty<string>()));
                 continue;
             }
 
@@ -1108,9 +1112,17 @@ public static class ShaderPopupHelper
                 .Select(fc => fc.File)
                 .ToList();
 
-            shaderPackService.SetExcludedFiles(id, excludedFiles);
+            exclusionsToWrite.Add((id, excludedFiles));
             CrashReporter.Log($"[ShaderPopupHelper.ShowAsync] Pack '{id}': {excludedFiles.Count} file(s) excluded");
         }
+
+        // Write exclusions off the UI thread
+        var capturedExclusions = exclusionsToWrite;
+        _ = Task.Run(() =>
+        {
+            foreach (var (id, excluded) in capturedExclusions)
+                shaderPackService.SetExcludedFiles(id, excluded);
+        });
 
         return confirmed;
     }
