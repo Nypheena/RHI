@@ -73,6 +73,20 @@ public partial class DetailPanelBuilder
         // Store the body panel so BuildDriverProfileSection can append to it
         _nvBodyPanel = nvBody;
 
+        // Show a loading indicator immediately so the section doesn't appear empty during the scan
+        if (!nvCollapsed)
+        {
+            var loadingRing = new ProgressRing
+            {
+                IsActive = true,
+                Width = 16,
+                Height = 16,
+                Margin = new Thickness(0, 4, 0, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            nvBody.Children.Add(loadingRing);
+        }
+
         // Fetch all NVAPI/preset values off the UI thread, then build the body on dispatcher
         var gameName   = card.GameName;
         var installPath = card.InstallPath ?? "";
@@ -137,6 +151,9 @@ public partial class DetailPanelBuilder
         StackPanel nvBody, DlssProfileData? dlssData,
         bool hasDlss, bool hasDlssd, bool hasDlssg, bool hasStreamline, bool hasDlssnr)
     {
+        // Clear the loading indicator (or any stale content from a previous build pass)
+        nvBody.Children.Clear();
+
         if (card.HasAnyDlssStreamline)
         {
             var dlssService = _dlssStreamlineService;
