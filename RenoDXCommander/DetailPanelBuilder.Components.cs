@@ -532,10 +532,6 @@ public partial class DetailPanelBuilder
         _window.DetailDcMessage.Visibility = card.DcRowVisibility == Visibility.Visible ? card.DcMessageVisibility : Visibility.Collapsed;
         _window.DetailDcMessage.Text = card.DcActionMessage;
         _window.DetailDcMessage.Foreground = UIFactory.GetBrush(GetMessageColor(card.DcActionMessage));
-        _window.DetailOsProgress.Visibility = card.OsRowVisibility == Visibility.Visible ? card.OsProgressVisibility : Visibility.Collapsed;
-        // OptiScaler message lives in the Extras section — suppress it from Components
-        _window.DetailOsProgress.Visibility = Visibility.Collapsed;
-        _window.DetailOsMessage.Visibility  = Visibility.Collapsed;
         _window.DetailDofFixProgress.Visibility = card.DofFixRowVisibility == Visibility.Visible ? card.DofFixProgressVisibility : Visibility.Collapsed;
         _window.DetailDofFixProgress.Value = card.DofFixProgress;
         _window.DetailDofFixMessage.Visibility = card.DofFixRowVisibility == Visibility.Visible ? card.DofFixMessageVisibility : Visibility.Collapsed;
@@ -567,6 +563,7 @@ public partial class DetailPanelBuilder
         {
             if (_currentDetailCard == null) return;
             UpdateDetailComponentRows(_currentDetailCard);
+            OnExtrasCardPropertyChanged(_currentDetailCard, e.PropertyName);
 
             // Refresh 32-bit / 64-bit badge when bitness changes
             if (e.PropertyName is "Is32Bit" or "Is32BitBadgeVisibility")

@@ -78,6 +78,46 @@ public partial class DetailPanelBuilder
 
         // ── OptiScaler row ────────────────────────────────────────────────────
         BuildOsRow(card, exBody);
+
+        UpdateOsFeedback(card);
+    }
+
+    
+    public void OnExtrasCardPropertyChanged(GameCardViewModel card, string? propertyName)
+    {
+        UpdateOsFeedback(card);
+
+        if (propertyName is "IsOsInstalled" or "OsActionLabel" or "OsStatusText"
+            or "OsStatusColor" or "OsDeleteVisibility" or "OsRowVisibility"
+            or "OsInstallEnabled" or "OsBtnBackground" or "OsInstalledFile" or "Is32Bit")
+        {
+            RequestExtrasRebuild(card);
+        }
+    }
+
+    
+    public void UpdateOsFeedback(GameCardViewModel card)
+    {
+        _window.DetailOsProgress.Visibility = card.OsRowVisibility == Visibility.Visible ? card.OsProgressVisibility : Visibility.Collapsed;
+        _window.DetailOsProgress.Value = card.OsProgress;
+        _window.DetailOsMessage.Visibility = card.OsRowVisibility == Visibility.Visible ? card.OsMessageVisibility : Visibility.Collapsed;
+        _window.DetailOsMessage.Text = card.OsActionMessage;
+        _window.DetailOsMessage.Foreground = UIFactory.GetBrush(GetMessageColor(card.OsActionMessage));
+    }
+
+    
+    private bool _extrasRebuildPending;
+
+    public void RequestExtrasRebuild(GameCardViewModel card)
+    {
+        if (_extrasRebuildPending) return;
+        _extrasRebuildPending = true;
+        _window.DispatcherQueue.TryEnqueue(() =>
+        {
+            _extrasRebuildPending = false;
+            if (_currentDetailCard != card) return;
+            BuildExtrasSection(card);
+        });
     }
 
     private void BuildUalRow(GameCardViewModel card, StackPanel body)
@@ -377,17 +417,7 @@ public partial class DetailPanelBuilder
             IsHitTestVisible = !osGreyed,
         };
         installBtn.Content = WithInfoArrow(card.OsActionLabel, HasRealInfoContent(card, AddonType.OptiScaler), card.OsStatus == GameStatus.UpdateAvailable, installBtn);
-        installBtn.Click += async (s, e) =>
-        {
-            _window.InstallOsButton_Click(s, e);
-            // Poll until OsIsInstalling is done, then rebuild the panel
-            await Task.Run(async () =>
-            {
-                while (card.OsIsInstalling)
-                    await Task.Delay(100).ConfigureAwait(false);
-            });
-            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
-        };
+        installBtn.Click += (s, e) => _window.InstallOsButton_Click(s, e);
         Grid.SetColumn(installBtn, 3);
         row.Children.Add(installBtn);
 
@@ -430,13 +460,7 @@ public partial class DetailPanelBuilder
             IsHitTestVisible = osShow && !osGreyed,
         };
         ToolTipService.SetToolTip(deleteBtn, "Remove OptiScaler");
-        deleteBtn.Click += async (s, e) =>
-        {
-            _window.UninstallOsButton_Click(s, e);
-            // Uninstall is synchronous — rebuild immediately on next tick
-            await Task.Delay(50);
-            _window.DispatcherQueue?.TryEnqueue(() => _window.BuildOverridesPanel(card));
-        };
+        deleteBtn.Click += (s, e) => _window.UninstallOsButton_Click(s, e);
         Grid.SetColumn(deleteBtn, 5);
         row.Children.Add(deleteBtn);
 
