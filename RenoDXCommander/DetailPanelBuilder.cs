@@ -769,8 +769,10 @@ public partial class DetailPanelBuilder
     private CancellationTokenSource _panelScanCts = new();
 
     // Limits concurrent background scans to prevent thread pool saturation
-    // when rapidly clicking through games.
-    private static readonly SemaphoreSlim _panelScanSemaphore = new SemaphoreSlim(4, 4);
+    // when rapidly clicking through games. Capacity of 1 ensures at most one
+    // NVAPI/file-scan is running at a time — all others are cancelled immediately
+    // when BuildOverridesPanel fires for a new game via _panelScanCts.
+    private static readonly SemaphoreSlim _panelScanSemaphore = new SemaphoreSlim(1, 1);
 
     /// <summary>
     /// Builds a collapsible section: a clickable header row (arrow + title) and a body
