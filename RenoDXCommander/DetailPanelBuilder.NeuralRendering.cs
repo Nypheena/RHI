@@ -59,9 +59,11 @@ public partial class DetailPanelBuilder
             bool bridgePresent = File.Exists(Path.Combine(installPath, BridgeDeployFile));
             bool feederPresent = File.Exists(Path.Combine(installPath, card.Is32Bit ? FeederDeployFile32 : FeederDeployFile64));
 
-            _window.DispatcherQueue?.TryEnqueue(() =>
+            _window.DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
                 BuildNeuralRenderingSectionWithData(card, dlss5Installed, sfInstalled,
-                    nrDllPresent, nrDllOwnedByRhi, nrDllVersion, bridgePresent, feederPresent));
+                    nrDllPresent, nrDllOwnedByRhi, nrDllVersion, bridgePresent, feederPresent);
+            });
             }
             finally { _panelScanSemaphore.Release(); }
         });

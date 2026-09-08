@@ -85,6 +85,11 @@ public partial class DetailPanelBuilder
         var hasDlssnr   = card.HasDlssnr;
         var capturedCard = card;
 
+        // Dedicated slot for the DLSS rows — lets TryEnqueue replace only DLSS content
+        // without touching driverContainer (which BuildDriverProfileSection appends after us).
+        var dlssContainer = new StackPanel { Spacing = nvBody.Spacing };
+        nvBody.Children.Add(dlssContainer);
+
         // Render immediately from cached data (if available) so the panel appears fully populated
         // without waiting for the background NVAPI scan. On first visit, card.CachedNvidiaProfileValid
         // is false, so null is passed and all combos show "Default" (same as the old ProgressRing state).
@@ -104,9 +109,16 @@ public partial class DetailPanelBuilder
                     RrRenderScale:    card.CachedRrRenderScale,
                     MfgMode:          card.CachedMfgMode)
                 : null;
-            BuildNvidiaProfileBody(card, capturedName, nvBody, cachedDlssData,
+            // Build into a temp container, then add as a single child — avoids per-element layout thrash.
+            var tempNvBody = new StackPanel { Spacing = dlssContainer.Spacing };
+            BuildNvidiaProfileBody(card, capturedName, tempNvBody, cachedDlssData,
                 hasDlss, hasDlssd, hasDlssg, hasStreamline, hasDlssnr);
+            dlssContainer.Children.Add(tempNvBody);
         }
+
+        // Capture whether we rendered from cache so the background scan can decide
+        // whether a rebuild is needed (skip rebuild if live data matches cache).
+        bool dlssCacheWasValid = card.CachedNvidiaProfileValid;
 
         // Fetch all NVAPI/preset values off the UI thread, then build the body on dispatcher
         var scanToken = _panelScanCts.Token;
@@ -146,7 +158,7 @@ public partial class DetailPanelBuilder
                 _panelScanSemaphore.Release();
             }
 
-            _window.DispatcherQueue?.TryEnqueue(() =>
+            _window.DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
                 // Guard: bail if the user navigated away
                 var current = _window.ViewModel.SelectedGame;
@@ -154,7 +166,22 @@ public partial class DetailPanelBuilder
                     || current.Source != gameSource)
                     return;
 
-                // Save live DLSS values to card cache so the next selection renders immediately
+                // Save live DLSS values to card cache so the next selection renders immediately.
+                // Compare before updating to detect if anything actually changed.
+                bool dlssDataChanged = !dlssCacheWasValid
+                    || dlssData == null
+                    || dlssData.SrDriverOverride != capturedCard.CachedSrDriverOverride
+                    || dlssData.RrDriverOverride != capturedCard.CachedRrDriverOverride
+                    || dlssData.FgDriverOverride != capturedCard.CachedFgDriverOverride
+                    || dlssData.NrDriverOverride != capturedCard.CachedNrDriverOverride
+                    || dlssData.SrPreset != capturedCard.CachedSrPreset
+                    || dlssData.RrPreset != capturedCard.CachedRrPreset
+                    || dlssData.FgPreset != capturedCard.CachedFgPreset
+                    || dlssData.NrPreset != capturedCard.CachedNrPreset
+                    || dlssData.SrRenderScale != capturedCard.CachedSrRenderScale
+                    || dlssData.RrRenderScale != capturedCard.CachedRrRenderScale
+                    || dlssData.MfgMode != capturedCard.CachedMfgMode;
+
                 if (dlssData != null)
                     capturedCard.UpdateCachedDlssProfile(
                         dlssData.SrDriverOverride, dlssData.RrDriverOverride,
@@ -162,8 +189,17 @@ public partial class DetailPanelBuilder
                         dlssData.SrPreset, dlssData.RrPreset, dlssData.FgPreset, dlssData.NrPreset,
                         dlssData.SrRenderScale, dlssData.RrRenderScale, dlssData.MfgMode);
 
-                BuildNvidiaProfileBody(capturedCard, capturedName, nvBody, dlssData,
+                // If we already rendered from a valid cache and nothing changed,
+                // skip the expensive panel rebuild — the UI is already correct.
+                if (!dlssDataChanged) return;
+
+                // Build into a throwaway container first, then swap atomically.
+                // This replaces ~47 individual Children.Add layout invalidations with just 2.
+                var tempBody = new StackPanel { Spacing = dlssContainer.Spacing };
+                BuildNvidiaProfileBody(capturedCard, capturedName, tempBody, dlssData,
                     hasDlss, hasDlssd, hasDlssg, hasStreamline, hasDlssnr);
+                dlssContainer.Children.Clear();
+                dlssContainer.Children.Add(tempBody);
             });
         });
     }

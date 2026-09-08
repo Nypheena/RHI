@@ -592,10 +592,10 @@ public sealed partial class MainWindow : Window
                                     PopulateDetailPanel(target);
                                     DetailPanel.Visibility = Visibility.Visible;
                                     BuildOverridesPanel(target);
-                                    OverridesContainer.Visibility = Visibility.Visible;
-                                    NeuralRenderingContainer.Visibility = Visibility.Visible;
-                                    NvidiaProfileContainer.Visibility = Visibility.Visible;
-                                    ManagementContainer.Visibility = Visibility.Visible;
+                                    if (OverridesContainer.Visibility != Visibility.Visible)        OverridesContainer.Visibility = Visibility.Visible;
+                                    if (NeuralRenderingContainer.Visibility != Visibility.Visible)  NeuralRenderingContainer.Visibility = Visibility.Visible;
+                                    if (NvidiaProfileContainer.Visibility != Visibility.Visible)    NvidiaProfileContainer.Visibility = Visibility.Visible;
+                                    if (ManagementContainer.Visibility != Visibility.Visible)       ManagementContainer.Visibility = Visibility.Visible;
                                     _detailPanelBuilder.ApplySectionOrder();
                                 }
                                 else if (ViewModel.CurrentViewLayout == ViewLayout.Compact)

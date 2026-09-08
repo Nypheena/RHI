@@ -23,6 +23,7 @@
 - Fixed OptiScaler install and uninstall progress not showing in the Extras section — the progress bar and status message now appear directly below the OptiScaler row where they belong. *(Thanks Sapphire)*
 - Fixed installing or removing ASI Loader and RTX 40 MFG Unlock resetting the Extras panel scroll position.
 - Fixed the drop helper window appearing as a separate entry in the taskbar and Alt+Tab switcher. *(Thanks Owen)*
+- Fixed an intermittent UI freeze when rapidly clicking through games — the NVIDIA Profile section's background scans now run at low priority so they can't block pointer input, and the DLSS/driver rows are rebuilt atomically instead of element-by-element.
 
 ### Manifest Updates
 
