@@ -6,6 +6,7 @@
 - Fixed the NVIDIA Profile Overrides section not applying preset and render scale changes — a stale background scan callback was overwriting the panel after a user change, discarding the new values.
 - Fixed the driver settings section (VSync, ReBAR, Smooth Motion, etc.) not appearing after a Refresh.
 - Fixed DLSS presets and render scale showing Default/Off instead of the actual driver values — reads now go directly to the live driver state instead of a stale in-memory cache.
+- Fixed a crash when clicking "Apply Peak Nits to All" or "Apply to All Games" in Settings when a game's install folder no longer exists on disk.
 
 ### Manifest Updates
 

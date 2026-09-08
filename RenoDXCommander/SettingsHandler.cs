@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using RenoDXCommander.Models;
@@ -425,6 +425,7 @@ public class SettingsHandler
         foreach (var card in ViewModel.AllCards)
         {
             if (string.IsNullOrEmpty(card.InstallPath)) continue;
+            if (!System.IO.Directory.Exists(card.InstallPath)) continue;
 
             // Find all reshade*.ini files (reshade.ini, reshade2.ini, reshade3.ini, etc.)
             var iniFiles = System.IO.Directory.EnumerateFiles(card.InstallPath, "reshade*.ini")
@@ -514,6 +515,7 @@ public class SettingsHandler
         foreach (var card in ViewModel.AllCards)
         {
             if (string.IsNullOrEmpty(card.InstallPath)) continue;
+            if (!System.IO.Directory.Exists(card.InstallPath)) continue;
 
             var iniFiles = System.IO.Directory.EnumerateFiles(card.InstallPath, "reshade*.ini")
                 .Where(f => System.IO.Path.GetFileName(f).StartsWith("reshade", StringComparison.OrdinalIgnoreCase)
@@ -966,6 +968,7 @@ public class SettingsHandler
         foreach (var card in ViewModel.AllCards)
         {
             if (string.IsNullOrEmpty(card.InstallPath)) continue;
+            if (!System.IO.Directory.Exists(card.InstallPath)) continue;
 
             // When the hotkey is the default (Home), skip RDR2 — its template uses
             // END and we don't want to overwrite that with the generic default.
@@ -1024,6 +1027,7 @@ public class SettingsHandler
         foreach (var card in ViewModel.AllCards)
         {
             if (string.IsNullOrEmpty(card.InstallPath)) continue;
+            if (!System.IO.Directory.Exists(card.InstallPath)) continue;
 
             if (isDefault && AuxInstallService.IsRdr2(card.GameName))
                 continue;
@@ -1120,6 +1124,7 @@ public class SettingsHandler
         foreach (var card in ViewModel.AllCards)
         {
             if (string.IsNullOrEmpty(card.InstallPath)) continue;
+            if (!System.IO.Directory.Exists(card.InstallPath)) continue;
 
             var iniFiles = System.IO.Directory.EnumerateFiles(card.InstallPath, "reshade*.ini")
                 .Where(f => System.IO.Path.GetFileName(f).StartsWith("reshade", StringComparison.OrdinalIgnoreCase)
