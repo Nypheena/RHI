@@ -3,20 +3,20 @@
 
 ### Bug Fixes
 
-- Fixed Custom render scale in DLSS & Streamline Defaults having no way to input a percentage — selecting Custom now shows an inline text box for entering a value (33–100%).
-- Fixed ReShade uninstall deleting `reshade.log` — the log is now preserved on uninstall.
-- Fixed intermittent UI freeze where the window could be moved and minimised but all buttons and controls were unresponsive — caused by WinUI's invisible modal overlay when a `ContentDialog` was opened while another was already showing. Affected actions include opening the Luma Settings cog, ASI Loader cog, ShortFuse settings, RTX 40 MFG cog, and install warning prompts. All dialog calls now go through the `ShowSafeAsync` gate.
-- Fixed a secondary UI freeze path where the app update check could block the WinUI dispatcher queue for up to 10 seconds when an update was found while the "Checking for updates…" progress dialog was open.
-- Fixed taskbar jump list update (on game launch and settings changes) running synchronous COM calls on the UI thread — now offloaded to a background thread.
-- Fixed Batch Deploy DLSS progress dialog occasionally leaving a ghost modal overlay when finishing quickly — replaced fire-and-forget dialog pattern with an explicit gate acquire/release.
-- Fixed patch notes and MOTD dialogs holding the WinUI dispatcher queue slot for the full dialog duration — replaced `TryEnqueue(async lambda)` with non-blocking fire-and-forget pattern.
-- Fixed Vulkan ReShade channel change (Custom/Stable/Nightly) blocking the UI thread for up to 10 seconds while elevated file copy to `C:\ProgramData\ReShade\` ran synchronously — now offloaded to `Task.Run`.
-- Fixed OptiScaler variant change (Stable → Nightly) and preset Apply button in the OptiScaler cog potentially building the rebuilt dialog off the UI thread — replaced `TryEnqueue(async lambda)` with `DispatcherTimer` so the rebuild always runs on the UI thread.
-- Fixed DLSS/Streamline version and preset changes causing a visible flicker where the entire overrides panel disappeared and rebuilt — only the NVIDIA Profile section now rebuilds when changing DLSS versions, presets, render scale, or driver overrides.
-- Fixed a race condition where rapidly changing a DLSS version and clicking a section header simultaneously could trigger a WinUI single-parent violation, causing a ghost modal overlay freeze — NVIDIA driver settings section now uses a consistent panel reference instead of a live field that could be overwritten by a concurrent rebuild.
-- Fixed shader pack exclusion writes blocking the UI thread when confirming the shader picker or on Feeder addon install — writes are now offloaded to a background thread.
-- Fixed NXM protocol handler holding the WinUI dispatcher queue slot for the full mod download and install duration — replaced `TryEnqueue(async lambda)` with non-blocking fire-and-forget pattern.
-- Fixed NVIDIA Profile Overrides section vanishing briefly on game selection and on OptiScaler install — values are now cached on the card after the first NVAPI scan. Subsequent game selections render the section immediately with cached values, then silently update in-place when the fresh scan completes.
+- Fixed Custom render scale in DLSS & Streamline Defaults — selecting "Custom" now shows a text box so you can type in a specific percentage (33–100%).
+- Fixed ReShade uninstall deleting your `reshade.log` — the log is now preserved.
+- Fixed an intermittent UI freeze where the window would stay active (moveable, minimisable) but all buttons and controls stopped responding. This could happen when opening cogs, install dialogs, or other popups while a background dialog was already showing. Affects the Luma Settings cog, ASI Loader cog, ShortFuse settings, RTX 40 MFG cog, and install warning prompts.
+- Fixed a freeze that could occur when an app update was found while the "Checking for updates…" progress dialog was open — the update dialog would silently block for up to 10 seconds.
+- Fixed a brief freeze when RHI updated the taskbar jump list after launching a game or changing the Recent Games setting — the update now runs in the background.
+- Fixed the Batch Deploy DLSS dialog occasionally leaving a ghost overlay that blocked all input after finishing quickly.
+- Fixed a flicker where the entire Overrides panel disappeared and rebuilt itself when changing a DLSS version, preset, render scale, or driver override — now only the NVIDIA Profile section refreshes.
+- Fixed a freeze that could occur when changing a DLSS version and clicking a section header at the same time.
+- Fixed the NVIDIA Profile Overrides section briefly going blank when selecting a game or installing OptiScaler — the section now shows immediately using cached values and updates silently in the background.
+- Fixed changing the Vulkan ReShade channel (Stable/Nightly/Custom) blocking the UI for up to 10 seconds while copying files to `C:\ProgramData\ReShade\`.
+- Fixed the OptiScaler cog potentially rebuilding off the UI thread when switching between Stable and Nightly variants, or after applying a preset — could cause a freeze in certain timing conditions.
+- Fixed OptiScaler install and uninstall progress not showing in the Extras section — the progress bar and status message now appear directly below the OptiScaler row where they belong. *(Thanks Sapphire)*
+- Fixed installing or removing ASI Loader and RTX 40 MFG Unlock resetting the Extras panel scroll position.
+- Fixed the drop helper window appearing as a separate entry in the taskbar and Alt+Tab switcher. *(Thanks Owen)*
 
 ---
 
