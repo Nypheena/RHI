@@ -1043,7 +1043,7 @@ public partial class MainViewModel
                 XamlRoot = xamlRoot,
             };
 
-            var result = await dialog.ShowAsync();
+            var result = await DialogService.ShowSafeAsync(dialog);
             return result == Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary;
         }
         catch (Exception ex)

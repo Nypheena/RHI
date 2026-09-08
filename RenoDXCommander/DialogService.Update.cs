@@ -28,11 +28,12 @@ public partial class DialogService
             var updateInfo = await _updateService.CheckForUpdateAsync(ViewModel.BetaOptIn);
             if (updateInfo == null) return; // up to date or check failed
 
-            // Show update dialog on UI thread
-            _dispatcherQueue.TryEnqueue(async () =>
-            {
-                await ShowUpdateDialogAsync(updateInfo);
-            });
+            // Marshal back to the UI thread to show the dialog.
+            // IMPORTANT: do NOT use TryEnqueue(async () => await ShowUpdateDialogAsync(...)) —
+            // that blocks the dispatcher queue thread for up to 10s waiting for the dialog gate.
+            // Instead, enqueue a non-async action that fires a new Task on the UI thread.
+            // The Task runs as an async continuation without ever occupying the queue dispatch slot.
+            _dispatcherQueue.TryEnqueue(() => _ = ShowUpdateDialogAsync(updateInfo));
         }
         catch (Exception ex)
         {

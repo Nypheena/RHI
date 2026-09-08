@@ -1,4 +1,15 @@
 
+## v2.6.8
+
+### Bug Fixes
+
+- Fixed intermittent UI freeze where the window could be moved and minimised but all buttons and controls were unresponsive — caused by WinUI's invisible modal overlay when a `ContentDialog` was opened while another was already showing. Affected actions include opening the Luma Settings cog, ASI Loader cog, ShortFuse settings, RTX 40 MFG cog, and install warning prompts. All dialog calls now go through the `ShowSafeAsync` gate.
+- Fixed a secondary UI freeze path where the app update check could block the WinUI dispatcher queue for up to 10 seconds when an update was found while the "Checking for updates…" progress dialog was open.
+- Fixed taskbar jump list update (on game launch and settings changes) running synchronous COM calls on the UI thread — now offloaded to a background thread via `Task.Run`.
+- Fixed Batch Deploy DLSS progress dialog occasionally leaving a ghost modal overlay when finishing quickly — replaced fire-and-forget `ShowSafeAsync` with an explicit gate acquire/release pattern matching the app update download flow.
+
+---
+
 ## v2.6.7
 
 ### Bug Fixes

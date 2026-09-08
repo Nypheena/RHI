@@ -526,7 +526,7 @@ public partial class DetailPanelBuilder
                 CloseButtonText = "Cancel",
                 XamlRoot = _window.Content.XamlRoot,
             };
-            var result = await dlg.ShowAsync();
+            var result = await DialogService.ShowSafeAsync(dlg);
             if (result == ContentDialogResult.Primary && newEnabled != currentEnabled)
                 _window.ViewModel.SetSfAutoConfigEnabled(gameName, newEnabled, store);
         };

@@ -293,7 +293,13 @@ public class MassDlssDeployDialog
             RequestedTheme = ElementTheme.Dark,
         };
 
-        _ = DialogService.ShowSafeAsync(progressDialog);
+        // Use explicit gate pattern to avoid a race condition where fire-and-forget ShowSafeAsync
+        // hasn't acquired the gate yet when progressDialog.Hide() is called, causing two concurrent
+        // ShowSafeAsync calls to race on the gate and trigger WinUI's invisible modal overlay freeze.
+        bool deployGateReleased = false;
+        progressDialog.Closed += (_, _) => { if (!deployGateReleased) { deployGateReleased = true; DialogService.ReleaseDialogGate(); } };
+        if (await DialogService.WaitDialogGateAsync(10))
+            _ = progressDialog.ShowAsync();
         await Task.Delay(100); // Let dialog render
 
         // Count selected games for progress
@@ -523,7 +529,11 @@ public class MassDlssDeployDialog
             RequestedTheme = ElementTheme.Dark,
         };
 
-        _ = DialogService.ShowSafeAsync(progressDialog);
+        // Use explicit gate pattern to avoid the fire-and-forget ShowSafeAsync race
+        bool restoreGateReleased = false;
+        progressDialog.Closed += (_, _) => { if (!restoreGateReleased) { restoreGateReleased = true; DialogService.ReleaseDialogGate(); } };
+        if (await DialogService.WaitDialogGateAsync(10))
+            _ = progressDialog.ShowAsync();
         await Task.Delay(100);
 
         for (int i = 0; i < eligibleCards.Count; i++)

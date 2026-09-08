@@ -152,7 +152,7 @@ public sealed partial class MainWindow : Window
         if (ViewModel.Settings.RecentGamesMenu && ViewModel.Settings.RecentLaunches.Count > 0)
         {
             _crashReporter.Log($"[MainWindow] Updating jump list with {ViewModel.Settings.RecentLaunches.Count} games");
-            TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches);
+            _ = Task.Run(() => TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches));
         }
         else
         {
@@ -333,7 +333,7 @@ public sealed partial class MainWindow : Window
         
         // Update jump list if enabled
         if (ViewModel.Settings.RecentGamesMenu && ViewModel.Settings.RecentLaunches.Count > 0)
-            TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches);
+            _ = Task.Run(() => TrayIconService.UpdateJumpList(ViewModel.Settings.RecentLaunches));
     }
 
     private void MainWindow_Activated(object? sender, WindowActivatedEventArgs e)

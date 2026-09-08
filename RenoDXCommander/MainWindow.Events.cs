@@ -295,7 +295,7 @@ public sealed partial class MainWindow
             XamlRoot = this.Content.XamlRoot,
         };
 
-        await dialog.ShowAsync();
+        await DialogService.ShowSafeAsync(dialog);
     }
 
     private void SupportDiscord_Click(object sender, RoutedEventArgs e)
