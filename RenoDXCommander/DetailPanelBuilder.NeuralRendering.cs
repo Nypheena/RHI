@@ -44,7 +44,9 @@ public partial class DetailPanelBuilder
         // ── Detect current install state (off the UI thread — all File.Exists calls) ──
         _ = Task.Run(async () =>
         {
-            await _panelScanSemaphore.WaitAsync();
+            var scanToken = _panelScanCts.Token;
+            try { await _panelScanSemaphore.WaitAsync(scanToken).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
             try
             {
             bool dlss5Installed  = rdx5Svc.IsInstalledIn(installPath);
@@ -234,7 +236,9 @@ public partial class DetailPanelBuilder
             // Gather all file I/O on a background thread, then update UI
             _ = Task.Run(async () =>
             {
-                await _panelScanSemaphore.WaitAsync();
+                var scanToken = _panelScanCts.Token;
+                try { await _panelScanSemaphore.WaitAsync(scanToken).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
                 try
                 {
                 bool d5i    = rdx5Svc.IsInstalledIn(installPath);

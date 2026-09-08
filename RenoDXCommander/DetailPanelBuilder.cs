@@ -762,6 +762,12 @@ public partial class DetailPanelBuilder
 
     // ── Section-collapse helper ──────────────────────────────────────────────
 
+    // Cancels in-flight NVAPI background scans when the user navigates to a new game.
+    // Every call to BuildOverridesPanel cancels the previous token and issues a new one.
+    // Tasks waiting on _panelScanSemaphore check the token and bail immediately,
+    // freeing their thread pool thread instead of sitting blocked.
+    private CancellationTokenSource _panelScanCts = new();
+
     // Limits concurrent background scans to prevent thread pool saturation
     // when rapidly clicking through games.
     private static readonly SemaphoreSlim _panelScanSemaphore = new SemaphoreSlim(4, 4);

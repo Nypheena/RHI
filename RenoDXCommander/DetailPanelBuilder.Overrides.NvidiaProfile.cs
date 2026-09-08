@@ -109,7 +109,7 @@ public partial class DetailPanelBuilder
         }
 
         // Fetch all NVAPI/preset values off the UI thread, then build the body on dispatcher
-
+        var scanToken = _panelScanCts.Token;
         _ = Task.Run(async () =>
         {
             // Skip if the user navigated away before we even acquire the semaphore —
@@ -118,7 +118,8 @@ public partial class DetailPanelBuilder
                 || _window.ViewModel.SelectedGame?.Source != gameSource)
                 return;
 
-            await _panelScanSemaphore.WaitAsync().ConfigureAwait(false);
+            try { await _panelScanSemaphore.WaitAsync(scanToken).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
             DlssProfileData? dlssData = null;
             try
             {
