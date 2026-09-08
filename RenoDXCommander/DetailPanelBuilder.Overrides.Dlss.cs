@@ -33,12 +33,6 @@ public partial class DetailPanelBuilder
 
         // Version ComboBox
         var versionLabel = new TextBlock { Text = "Version", FontSize = 10, Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush), Margin = new Thickness(0, 2, 0, 0) };
-        if (driverOverrideActive)
-            ToolTipService.SetToolTip(versionLabel, "NVIDIA Override is active — the driver is injecting its own DLL for this game.");
-        else if (onDriverOverrideToggled != null)
-            ToolTipService.SetToolTip(versionLabel, "Select a specific DLL version to swap, or choose \"NVIDIA Override\" to let the driver inject its own latest version for this game (equivalent to enabling DLSS Override in NVIDIA App or Profile Inspector).");
-        else
-            ToolTipService.SetToolTip(versionLabel, "Select a specific DLL version to swap into the game folder, or Default to restore the original.");
         col.Children.Add(versionLabel);
 
         // Build items list with (Default) marker on the game's original/default version
@@ -125,6 +119,13 @@ public partial class DetailPanelBuilder
             IsEnabled = isPresent || (onDriverOverrideToggled != null),
             Opacity = 1.0,
         };
+
+        if (driverOverrideActive)
+            ToolTipService.SetToolTip(versionCombo, "NVIDIA Override is active — the driver is injecting its own latest DLL for this game.");
+        else if (onDriverOverrideToggled != null)
+            ToolTipService.SetToolTip(versionCombo, "Swap to a specific DLL version, or select \"NVIDIA Override\" to let the NVIDIA driver inject its own latest version (equivalent to enabling DLSS Override in NVIDIA App or Profile Inspector). Selecting any other version clears the override.");
+        else
+            ToolTipService.SetToolTip(versionCombo, "Swap to a specific DLL version, or Default to restore the original game DLL.");
 
         col.Children.Add(versionCombo);
 
