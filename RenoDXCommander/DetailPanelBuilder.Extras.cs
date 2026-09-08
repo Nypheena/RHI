@@ -249,13 +249,13 @@ public partial class DetailPanelBuilder
                     _window.ViewModel.SetUalInstalledAs(gameName, chosen, store);
                     if (hookedOriginal != null)
                     {
-                        _ = new ContentDialog
+                        _ = DialogService.ShowSafeAsync(new ContentDialog
                         {
                             Title = "Original DLL chained",
                             Content = $"The existing '{chosen}' was renamed to '{hookedOriginal}' so ASI Loader can chain-load it automatically.",
                             CloseButtonText = "OK",
                             XamlRoot = _window.Content.XamlRoot,
-                        }.ShowAsync();
+                        });
                     }
                     _window.DispatcherQueue.TryEnqueue(() => _window.BuildOverridesPanel(card));
                 }
@@ -294,7 +294,7 @@ public partial class DetailPanelBuilder
                 CloseButtonText = "Close",
                 XamlRoot = _window.Content.XamlRoot,
             };
-            await dlg.ShowAsync();
+            await DialogService.ShowSafeAsync(dlg);
         };
         Grid.SetColumn(cogBtn, 4);
         row.Children.Add(cogBtn);
@@ -600,7 +600,7 @@ public partial class DetailPanelBuilder
             XamlRoot = _window.Content.XamlRoot,
         };
 
-        await dialog.ShowAsync();
+        await DialogService.ShowSafeAsync(dialog);
         return chosen;
     }
 
@@ -828,7 +828,7 @@ public partial class DetailPanelBuilder
                 XamlRoot = _window.Content.XamlRoot,
                 RequestedTheme = ElementTheme.Dark,
             };
-            var result = await dlg.ShowAsync();
+            var result = await DialogService.ShowSafeAsync(dlg);
             if (result == ContentDialogResult.Primary)
                 _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/dashdogy/RTX40MFG-Unlock"));
         };
