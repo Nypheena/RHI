@@ -248,7 +248,6 @@ public partial class DetailPanelBuilder
                 bool nri    = File.Exists(Path.Combine(installPath, "nvngx_dlssnr.dll"));
                 bool bri    = File.Exists(Path.Combine(installPath, BridgeDeployFile));
                 bool fei    = File.Exists(Path.Combine(installPath, card.Is32Bit ? FeederDeployFile32 : FeederDeployFile64));
-                bool rsi    = card.IsRsInstalled;
                 bool dlssi  = File.Exists(Path.Combine(installPath, "nvngx_dlss.dll"));
                 bool dlssdi = File.Exists(Path.Combine(installPath, "nvngx_dlssd.dll"));
                 bool dlssgi = File.Exists(Path.Combine(installPath, "nvngx_dlssg.dll"));
@@ -260,6 +259,9 @@ public partial class DetailPanelBuilder
                 _window.DispatcherQueue?.TryEnqueue(() =>
                 {
                     if (_window.ViewModel.SelectedGame != card) return;
+                    // Read IsRsInstalled on the UI thread so it reflects the latest card state
+                    // (install may have completed between the background scan start and now)
+                    bool rsi = card.IsRsInstalled;
                     RefreshStatusWithData(d5i, sfi, nri, bri, fei, rsi, dlssi, dlssdi, dlssgi, nrv, dlssv, dlssdv, dlssgv);
                 });
                 }
