@@ -10,6 +10,11 @@
 - Fixed a crash when clicking "Apply Peak Nits to All" or "Apply to All Games" in Settings when a game's install folder no longer exists on disk.
 - Fixed Admin Mode not being recognised on certain configurations — RHI now uses a practical write-access check to detect administrator privileges, which correctly handles accounts running with full admin rights even when the standard token elevation check returns false.
 - Fixed the Neural Rendering section showing ReShade as not installed immediately after installing it — navigating away and back was required to update the status. The status bar now always reflects the current install state.
+- Fixed RE Framework showing a stale build number on the card when the framework had been updated — the displayed version now syncs to the actual installed build on the next update check.
+
+### Manifest Updates
+
+- Onimusha: Way of the Sword: added ultrawide fix link.
 
 ---
 
