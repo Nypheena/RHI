@@ -17,6 +17,9 @@
 
 ### Bug Fixes
 
+- Fixed DLSS Fix writing the wrong path for `sl.interposer.dll` in `reshade.ini` — it was writing the path to `sl.common.dll` instead, which caused DLSS Fix to fail to hook Streamline correctly.
+- Fixed DLSS Fix INI settings not being written at all when Streamline was detected after the initial scan (e.g. added by a game update or another component install in the same session).
+- Fixed NR Cost Scaler toggle remaining greyed out all session on a fresh install — staging downloads in the background at startup but the toggle never updated to reflect it, requiring an NR method install+uninstall cycle to un-grey it.
 - Fixed a crash when clicking "Apply Peak Nits to All" or "Apply to All Games" in Settings when a game's install folder no longer exists on disk.
 - Fixed Admin Mode not being recognised on certain configurations — RHI now uses a practical write-access check to detect administrator privileges, which correctly handles accounts running with full admin rights even when the standard token elevation check returns false.
 - Fixed the Neural Rendering section showing ReShade as not installed immediately after installing it — navigating away and back was required to update the status. The status bar now always reflects the current install state.
@@ -26,6 +29,7 @@
 ### Manifest Updates
 
 - Onimusha: Way of the Sword: added ultrawide fix link.
+- Red Dead Redemption 2: matched to the RenoDX wiki entry (Vulkan mod).
 
 ---
 

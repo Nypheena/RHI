@@ -168,6 +168,13 @@ public partial class MainViewModel
             try { await hdrDbTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] HDR database task failed — {ex.Message}"); }
             try { await addonPackTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Addon pack await failed — {ex.Message}"); }
             try { await nrCostScalerTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] NR Cost Scaler staging await failed — {ex.Message}"); }
+            // If Cost Scaler staging just became ready, rebuild the selected card's NR section so the toggle un-greys
+            if (_nrCostScalerService.IsStagingReady)
+            {
+                var sel = SelectedGame;
+                if (sel != null)
+                    DispatcherQueue?.TryEnqueue(() => RequestCardRebuild?.Invoke(sel));
+            }
             try { await rtx40MfgTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] RTX40MFG staging await failed — {ex.Message}"); }
 
             // Apply manifest-driven shader pack and addon pack overrides

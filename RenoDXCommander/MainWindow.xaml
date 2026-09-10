@@ -2427,7 +2427,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <Button Grid.Row="0" Grid.Column="0" Content="reshade.ini" Click="MassDeployRsIni_Click"
+                                    <Button Grid.Row="0" Grid.Column="0" Content="ReShade.ini" Click="MassDeployRsIni_Click"
                                             Background="{StaticResource AccentBlueBgBrush}" Foreground="{StaticResource AccentBlueBrush}"
                                             BorderBrush="{StaticResource AccentBlueBorderBrush}" BorderThickness="1"
                                             CornerRadius="8" Padding="12,7" FontSize="12" HorizontalAlignment="Stretch"/>

@@ -1151,11 +1151,17 @@ public partial class MainViewModel
         {
             var ini = AuxInstallService.ParseIni(File.ReadAllLines(iniPath));
 
-            // Resolve DLSS detection — use card's cached result, or fall back to trusted path cache
+            // Resolve DLSS detection — use card's cached result, fall back to trusted path cache,
+            // then fall back to a full scan (covers cases where Streamline was added after BuildCards ran).
             var detection = card.DlssDetection;
             if (detection == null && !string.IsNullOrEmpty(card.InstallPath))
             {
                 try { detection = _dlssStreamlineService.TryFastDetect(card.GameName, card.InstallPath); }
+                catch { /* non-critical fallback */ }
+            }
+            if ((detection == null || !detection.HasAny) && !string.IsNullOrEmpty(card.InstallPath))
+            {
+                try { detection = _dlssStreamlineService.Detect(card.InstallPath); }
                 catch { /* non-critical fallback */ }
             }
 
@@ -1174,11 +1180,27 @@ public partial class MainViewModel
 
                 if (!string.IsNullOrEmpty(detection.DlssPath))
                     ini["RENODX-DLSSFIX"]["DLSSPath"] = detection.DlssPath;
-                if (!string.IsNullOrEmpty(detection.StreamlineInterposerPath))
-                    ini["RENODX-DLSSFIX"]["StreamlinePath"] = detection.StreamlineInterposerPath;
+
+                // StreamlinePath must point to sl.interposer.dll specifically — that is the DLL the
+                // DLSS Fix addon needs to hook into. detection.StreamlineInterposerPath actually holds
+                // sl.common.dll (the version-source DLL) despite the misleading field name, so we
+                // resolve the real interposer path from StreamlineFolder directly.
+                // Fall back to StreamlineInterposerPath if sl.interposer.dll is absent (EA builds etc.)
+                string? slInterposerPath = null;
+                if (!string.IsNullOrEmpty(detection.StreamlineFolder))
+                {
+                    var slExplicitPath = Path.Combine(detection.StreamlineFolder, "sl.interposer.dll");
+                    slInterposerPath = File.Exists(slExplicitPath) ? slExplicitPath : detection.StreamlineInterposerPath;
+                }
+                else
+                {
+                    slInterposerPath = detection.StreamlineInterposerPath;
+                }
+                if (!string.IsNullOrEmpty(slInterposerPath))
+                    ini["RENODX-DLSSFIX"]["StreamlinePath"] = slInterposerPath;
 
                 AuxInstallService.WriteIni(iniPath, ini);
-                _crashReporter.Log($"[ApplyOrRemoveDlssFixIni] Applied DLSS Fix INI settings for '{card.GameName}'");
+                _crashReporter.Log($"[ApplyOrRemoveDlssFixIni] Applied DLSS Fix INI settings for '{card.GameName}' — StreamlinePath={slInterposerPath ?? "(none)"}");
             }
             else
             {

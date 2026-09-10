@@ -28,7 +28,7 @@ public class MassDeployHandler
         var confirmDialog = new ContentDialog
         {
             Title = "Confirm Mass Deployment",
-            Content = $"This will deploy reshade.ini to {eligible.Count} game(s) with ReShade installed.\n\nCustom hotkey and screenshot path settings are preserved.\n\nContinue?",
+            Content = $"This will deploy ReShade.ini to {eligible.Count} game(s) with ReShade installed.\n\nCustom hotkey and screenshot path settings are preserved.\n\nContinue?",
             PrimaryButtonText = "Deploy",
             CloseButtonText = "Cancel",
             XamlRoot = _window.Content.XamlRoot,
@@ -56,7 +56,7 @@ public class MassDeployHandler
             }
         }
         CrashReporter.Log($"[MassDeployRsIni] Deployed reshade.ini to {count} game(s)");
-        await ShowDeployResult("reshade.ini", count);
+        await ShowDeployResult("ReShade.ini", count);
     }
 
     public async void MassDeployUlIni_Click(object sender, RoutedEventArgs e)
