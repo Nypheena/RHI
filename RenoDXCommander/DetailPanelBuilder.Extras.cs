@@ -79,11 +79,11 @@ public partial class DetailPanelBuilder
         // ── RTX 40 MFG Unlock row ─────────────────────────────────────────────
         BuildRtx40MfgRow(card, exBody);
 
-        // ── 20/30 FG Unlock row ───────────────────────────────────────────────
-        BuildDlssg2030Row(card, exBody);
-
         // ── MFG Ada Unlock row ────────────────────────────────────────────────
         BuildMfgAdaUnlockRow(card, exBody);
+
+        // ── 20/30 FG Unlock row ───────────────────────────────────────────────
+        BuildDlssg2030Row(card, exBody);
 
         // ── Other separator ───────────────────────────────────────────────────
         exBody.Children.Add(MakeExtrasSeparator("Other"));

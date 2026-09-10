@@ -513,7 +513,8 @@ public partial class DetailPanelBuilder
                        "• Rename ReShade to Reshade64.asi\n" +
                        "• Install ASI Loader (winmm → version → dinput8)\n" +
                        "• Write HookStreamline=1 and HookDirectX=1 to reshade.ini\n\n" +
-                       "These steps are needed for FrameGen to work correctly after ReShade.",
+                       "These steps are needed for FrameGen to work correctly after ReShade.\n\n" +
+                       "Note: no longer required on ShortFuse v0.54 and above.",
                 FontSize = 11,
                 Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
                 TextWrapping = TextWrapping.Wrap,

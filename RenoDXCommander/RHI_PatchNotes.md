@@ -1,36 +1,36 @@
 
-## v2.6.9 <sup>*nice*</sup>
+## v2.6.9
 
 ### New
 
-- **RTX 40 MFG Unlock v1.3** — updated to the new standalone single-DLL format. No longer requires ASI Loader. When you click Install, RHI now asks you to choose a DLL name (version.dll, dinput8.dll, etc.) and deploys `RTXMFG.dll` under that name. The existing staging folder is automatically wiped on first launch so the new version downloads cleanly.
-- **20/30 FG Unlock** — new entry in the MFG Unlocks section. Enables DLSS Frame Generation on RTX 20 and 30 series GPUs (D3D12 only, no ReShade or ASI Loader required). Select your GPU generation (RTX 30 / RTX 20) in the cog before installing. RHI deploys the DLL and configures `dlssg_sm86.ini` automatically, and keeps both files updated.
-- **Resolution & Colour Control** — automatically switch your desktop resolution when a game launches and restore it on exit. Set your target resolution and enable per-game or globally from the new Resolution & Colour Control card in Settings. Also includes Output Colour Settings to set display colour depth and dynamic range per-monitor without touching NVIDIA Control Panel.
-- **Standalone DLSS Enabler** — new row in the Extras section lets you install DLSS Enabler directly into any game's root folder as a proxy DLL (version.dll, winmm.dll, etc.), independent of OptiScaler. Automatically updates alongside the OptiScaler-bundled version.
-- **MFG Ada Unlock** — new row in the Extras section installs MFG Ada Unlock directly from the addon cache. Mutually exclusive with RTX 40 MFG Unlock. Requires ReShade.
+- **RTX 40 MFG Unlock v1.3** — updated to the new standalone format. No longer requires ASI Loader — it's a single DLL that you deploy under any proxy name the game loads (version.dll, dinput8.dll, etc.). RHI shows a name picker on install, and automatically cleans up any old ASI-based install on first launch.
+- **20/30 FG Unlock** — new entry in the MFG Unlocks section. Brings DLSS Frame Generation to RTX 20 and 30 series GPUs (D3D12 games only, no ReShade or ASI Loader required). Pick your GPU generation (RTX 30 or RTX 20) in the cog before installing — RHI handles the rest and keeps it updated automatically.
+- **Resolution & Colour Control** — automatically switch to a target resolution when a game launches and restore it on exit. Also includes Output Colour Settings to control colour depth and HDR dynamic range per-display, without touching NVIDIA Control Panel.
+- **Standalone DLSS Enabler** — new row in the Extras section. Installs DLSS Enabler as a proxy DLL directly into any game folder, independent of OptiScaler. Updates automatically.
+- **MFG Ada Unlock** — new row in the Extras section. Unlocks DLSS Multi Frame Generation (3x/4x+) on RTX 40-series GPUs. Requires ReShade. Mutually exclusive with RTX 40 MFG Unlock.
 
 ### Changes
 
 - Changing a DLSS preset, render scale, or driver override in the NVIDIA Profile Overrides section no longer flashes or rebuilds the panel — the value is written immediately and the combo stays exactly as you set it.
 - Extras section install buttons (ASI Loader, RTX 40 MFG, DLSS Enabler) now show the same blue installed style as the Components section when installed.
-- Extras section is now categorised with separators: ASI Loader at the top, MFG Unlocks group (RTX 40 MFG and MFG Ada Unlock), and Other group (OptiScaler and DLSS Enabler).
-- Neural Rendering: added a note below the NR Cost Scaler toggle when ShortFuse method is selected explaining that Cost Scaler is now built into the addon.
+- Extras section is now split into groups with separators: ASI Loader at the top, MFG Unlocks (RTX 40 MFG, MFG Ada Unlock, 20/30 FG Unlock), and Other (OptiScaler, DLSS Enabler).
+- Neural Rendering: added a note below the NR Cost Scaler toggle when the ShortFuse method is selected, explaining that Cost Scaler is now built into the addon.
 
 ### Maintenance
 
-- Unified DLL backup/restore across all components behind a shared sentinel pattern. When RHI deploys a DLL to a game folder, it now always writes a `.original` file alongside it — a real copy if the game already had that file, or a 0-byte sentinel if it didn't. On uninstall, RHI uses the sentinel to decide whether to restore the game's original or simply delete the file it placed. This eliminates cases where game-original DLLs were silently overwritten and unrecoverable, and eliminates orphaned 0-byte `.original` files left behind after uninstall. Covers: OptiScaler (main DLL, companion DLLs, all DLSS DLLs), DLSS version swaps, RE Framework, and Luma post-install DLSS deployment.
+- RHI now tracks every DLL it deploys into game folders using a sentinel file. If the game already had a file at that location, the original is backed up and restored on uninstall. If there was nothing there, a 0-byte marker is written so RHI knows to clean up cleanly. This prevents game-original DLLs from being lost after uninstall, and fixes orphaned leftover files. Covers OptiScaler, DLSS version swaps, RE Framework, and Luma.
 
 ### Bug Fixes
 
-- Fixed DLSS Fix writing the wrong path for `sl.interposer.dll` in `reshade.ini` — it was writing the path to `sl.common.dll` instead, which caused DLSS Fix to fail to hook Streamline correctly.
-- Fixed DLSS Fix INI settings not being written at all when Streamline was detected after the initial scan (e.g. added by a game update or another component install in the same session).
-- Fixed NR Cost Scaler toggle remaining greyed out all session on a fresh install — staging downloads in the background at startup but the toggle never updated to reflect it, requiring an NR method install+uninstall cycle to un-grey it.
-- Fixed ASI Loader leaving its INI file behind on uninstall (e.g. `winmm.dll` uninstall now also removes `winmm.ini`).
-- Fixed a crash when clicking "Apply Peak Nits to All" or "Apply to All Games" in Settings when a game's install folder no longer exists on disk.
-- Fixed Admin Mode not being recognised on certain configurations — RHI now uses a practical write-access check to detect administrator privileges, which correctly handles accounts running with full admin rights even when the standard token elevation check returns false.
-- Fixed the Neural Rendering section showing ReShade as not installed immediately after installing it — navigating away and back was required to update the status. The status bar now always reflects the current install state.
-- Fixed RE Framework showing a stale build number on the card when the framework had been updated — the displayed version now syncs to the actual installed build on the next update check.
-- Fixed NVIDIA Profile Overrides showing Default/Off on launch until a Refresh — a thread-safety race between NVAPI initialization and the panel scan caused `GetPreset` to throw, silently returning 0 for all values.
+- Fixed DLSS Fix writing the wrong Streamline path in `reshade.ini` — it was pointing to the wrong file, which caused DLSS Fix to fail to hook Streamline correctly.
+- Fixed DLSS Fix config not being written at all when Streamline files were added to a game after RHI had already scanned it (e.g. from a game update or another component install in the same session).
+- Fixed the NR Cost Scaler toggle staying greyed out for an entire session after a fresh RHI install — it downloads in the background at startup but the toggle wasn't updating to reflect it, requiring an install+uninstall workaround to un-grey it.
+- Fixed ASI Loader leaving its INI file behind on uninstall (e.g. uninstalling `winmm.dll` now also removes `winmm.ini`).
+- Fixed a crash when clicking "Apply Peak Nits to All" or "Apply to All Games" in Settings when a game's folder no longer exists on disk.
+- Fixed Admin Mode not being detected on certain system configurations — RHI now uses a more reliable check that correctly handles accounts with full admin rights even when the standard elevation check returns false.
+- Fixed the Neural Rendering section showing ReShade as not installed immediately after installing it — you had to navigate away and back to see the correct status.
+- Fixed RE Framework showing a stale build number on the card after an update — the version now syncs correctly on the next update check.
+- Fixed NVIDIA Profile Overrides showing Default/Off on every launch until a manual Refresh — caused by a startup timing issue where profile reads would fail silently before NVAPI finished initialising.
 
 ### Manifest Updates
 

@@ -21,6 +21,7 @@ public class Dlssg20_30Service
     private const string RepoName      = "dlssg_for_sm86";
     private const string DllRawUrl     = $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/main/version.dll";
     private const string IniRawUrl     = $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/main/dlssg_sm86.ini";
+    private const string ReadmeApiUrl  = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/readme";
     private const string CommitsApiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/commits?path=version.dll&per_page=1";
 
     public const string StagedDllName = "version.dll";
@@ -73,7 +74,7 @@ public class Dlssg20_30Service
 
     public async Task CheckForUpdateAsync()
     {
-        var sha = await FetchLatestCommitShaAsync().ConfigureAwait(false);
+        var sha = await FetchLatestVersionAsync().ConfigureAwait(false);
         if (string.IsNullOrEmpty(sha)) return;
 
         LatestVersion = sha;
@@ -92,7 +93,7 @@ public class Dlssg20_30Service
 
         Directory.CreateDirectory(_stagingDir);
 
-        var sha = LatestVersion ?? await FetchLatestCommitShaAsync().ConfigureAwait(false);
+        var sha = LatestVersion ?? await FetchLatestVersionAsync().ConfigureAwait(false);
         if (string.IsNullOrEmpty(sha))
         {
             _crashReporter.Log("[Dlssg20_30Service.EnsureStaging] Could not resolve latest commit SHA");
@@ -254,8 +255,45 @@ public class Dlssg20_30Service
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task<string?> FetchLatestCommitShaAsync()
+    private async Task<string?> FetchLatestVersionAsync()
     {
+        // Primary: parse version from README heading (e.g. "# DLSSG Native 0.2.4" → "0.2.4")
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, ReadmeApiUrl);
+            req.Headers.Add("User-Agent", "RHI");
+            req.Headers.Add("Accept", "application/vnd.github+json");
+            using var resp = await _http.SendAsync(req).ConfigureAwait(false);
+            if (resp.IsSuccessStatusCode)
+            {
+                var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("content", out var contentProp))
+                {
+                    var b64 = contentProp.GetString() ?? "";
+                    var text = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64));
+                    // First h1 line: "# DLSSG Native 0.2.4"
+                    foreach (var line in text.Split('\n'))
+                    {
+                        var trimmed = line.TrimStart('#').Trim();
+                        // Extract version number — last token that looks like x.y.z
+                        var parts = trimmed.Split(' ');
+                        foreach (var part in parts.Reverse())
+                        {
+                            if (System.Text.RegularExpressions.Regex.IsMatch(part, @"^\d+\.\d+"))
+                                return part;
+                        }
+                        if (trimmed.Length > 0) break; // only check first heading
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[Dlssg20_30Service.FetchLatestVersion] README parse failed — {ex.Message}");
+        }
+
+        // Fallback: short commit SHA
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, CommitsApiUrl);
@@ -264,19 +302,18 @@ public class Dlssg20_30Service
             using var resp = await _http.SendAsync(req).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
             {
-                _crashReporter.Log($"[Dlssg20_30Service.FetchLatestCommitSha] HTTP {(int)resp.StatusCode}");
+                _crashReporter.Log($"[Dlssg20_30Service.FetchLatestVersion] HTTP {(int)resp.StatusCode}");
                 return null;
             }
             var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
             var sha = doc.RootElement.EnumerateArray().FirstOrDefault().TryGetProperty("sha", out var shaProp)
                 ? shaProp.GetString() : null;
-            // Return short 7-char SHA for display
             return sha?.Length >= 7 ? sha[..7] : sha;
         }
         catch (Exception ex)
         {
-            _crashReporter.Log($"[Dlssg20_30Service.FetchLatestCommitSha] {ex.Message}");
+            _crashReporter.Log($"[Dlssg20_30Service.FetchLatestVersion] {ex.Message}");
             return null;
         }
     }
