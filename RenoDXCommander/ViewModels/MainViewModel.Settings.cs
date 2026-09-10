@@ -579,19 +579,73 @@ public partial class MainViewModel
     public bool GetRtx40MfgInstalled(string gameName, string store = "")
     {
         var key = GameKey.From(gameName, store).ToKey();
-        return _gameNameService.Rtx40MfgInstalled.Contains(key)
-            || _gameNameService.Rtx40MfgInstalled.Contains(gameName);
+        return _gameNameService.Rtx40MfgInstalledAs.ContainsKey(key)
+            || _gameNameService.Rtx40MfgInstalledAs.ContainsKey(gameName);
     }
 
-    public void SetRtx40MfgInstalled(string gameName, bool value, string store = "")
+    public string? GetRtx40MfgInstalledAs(string gameName, string store = "")
     {
         var key = GameKey.From(gameName, store).ToKey();
-        if (value) _gameNameService.Rtx40MfgInstalled.Add(key);
+        if (_gameNameService.Rtx40MfgInstalledAs.TryGetValue(key, out var v)) return v;
+        if (_gameNameService.Rtx40MfgInstalledAs.TryGetValue(gameName, out var v2)) return v2;
+        return null;
+    }
+
+    public void SetRtx40MfgInstalledAs(string gameName, string? dllName, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (!string.IsNullOrEmpty(dllName))
+            _gameNameService.Rtx40MfgInstalledAs[key] = dllName;
         else
         {
-            _gameNameService.Rtx40MfgInstalled.Remove(key);
-            _gameNameService.Rtx40MfgInstalled.Remove(gameName);
+            _gameNameService.Rtx40MfgInstalledAs.Remove(key);
+            _gameNameService.Rtx40MfgInstalledAs.Remove(gameName);
         }
+        SaveNameMappings();
+    }
+
+    // ── 20/30 FG Unlock ───────────────────────────────────────────────────────
+
+    public bool GetDlssg2030Installed(string gameName, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        return _gameNameService.Dlssg2030InstalledAs.ContainsKey(key)
+            || _gameNameService.Dlssg2030InstalledAs.ContainsKey(gameName);
+    }
+
+    public string? GetDlssg2030InstalledAs(string gameName, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (_gameNameService.Dlssg2030InstalledAs.TryGetValue(key, out var v)) return v;
+        if (_gameNameService.Dlssg2030InstalledAs.TryGetValue(gameName, out var v2)) return v2;
+        return null;
+    }
+
+    public void SetDlssg2030InstalledAs(string gameName, string? dllName, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (!string.IsNullOrEmpty(dllName))
+            _gameNameService.Dlssg2030InstalledAs[key] = dllName;
+        else
+        {
+            _gameNameService.Dlssg2030InstalledAs.Remove(key);
+            _gameNameService.Dlssg2030InstalledAs.Remove(gameName);
+        }
+        SaveNameMappings();
+    }
+
+    public string GetDlssg2030GpuGen(string gameName, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (_gameNameService.Dlssg2030GpuGen.TryGetValue(key, out var v)) return v;
+        if (_gameNameService.Dlssg2030GpuGen.TryGetValue(gameName, out var v2)) return v2;
+        return Dlssg20_30Service.GpuGenRtx30; // default to RTX 30
+    }
+
+    public void SetDlssg2030GpuGen(string gameName, string gpuGen, string store = "")
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        _gameNameService.Dlssg2030GpuGen[key] = gpuGen;
         SaveNameMappings();
     }
 

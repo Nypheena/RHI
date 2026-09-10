@@ -119,7 +119,9 @@ public class GameNameService : IGameNameService
     /// <summary>Games where ShortFuse auto-config is ENABLED. Composite-keyed "GameName|Store". Absent = disabled (default).</summary>
     private HashSet<string> _sfAutoConfigEnabled = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _dlssNrCostScalerEnabled = new(StringComparer.OrdinalIgnoreCase);
-    private HashSet<string> _rtx40MfgInstalled = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _rtx40MfgInstalledAs = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _dlssg2030InstalledAs = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _dlssg2030GpuGen = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Maps current (renamed) game name → original store-detected name.</summary>
     private Dictionary<string, string> _originalDetectedNames = new(StringComparer.OrdinalIgnoreCase);
@@ -221,7 +223,11 @@ public class GameNameService : IGameNameService
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Composite-keyed "GameName|Store". Absent = disabled.</summary>
     public HashSet<string> SfAutoConfigEnabled => _sfAutoConfigEnabled;
     public HashSet<string> DlssNrCostScalerEnabled => _dlssNrCostScalerEnabled;
-    public HashSet<string> Rtx40MfgInstalled => _rtx40MfgInstalled;
+    public Dictionary<string, string> Rtx40MfgInstalledAs => _rtx40MfgInstalledAs;
+    /// <summary>Per-game 20/30 FG Unlock installed DLL name. Key = "GameName|Store", Value = DLL filename.</summary>
+    public Dictionary<string, string> Dlssg2030InstalledAs => _dlssg2030InstalledAs;
+    /// <summary>Per-game 20/30 FG Unlock GPU generation. Key = "GameName|Store", Value = "RTX 30 Series" or "RTX 20 Series".</summary>
+    public Dictionary<string, string> Dlssg2030GpuGen => _dlssg2030GpuGen;
 
     public GameNameService(
         IGameDetectionService gameDetectionService,
@@ -585,8 +591,15 @@ public class GameNameService : IGameNameService
             Load<List<string>>("SfAutoConfigEnabled", new()), StringComparer.OrdinalIgnoreCase);
         _dlssNrCostScalerEnabled = new HashSet<string>(
             Load<List<string>>("DlssNrCostScalerEnabled", new()), StringComparer.OrdinalIgnoreCase);
-        _rtx40MfgInstalled = new HashSet<string>(
-            Load<List<string>>("Rtx40MfgInstalled", new()), StringComparer.OrdinalIgnoreCase);
+        _rtx40MfgInstalledAs = new Dictionary<string, string>(
+            Load<Dictionary<string, string>>("Rtx40MfgInstalledAs", new()),
+            StringComparer.OrdinalIgnoreCase);
+        _dlssg2030InstalledAs = new Dictionary<string, string>(
+            Load<Dictionary<string, string>>("Dlssg2030InstalledAs", new()),
+            StringComparer.OrdinalIgnoreCase);
+        _dlssg2030GpuGen = new Dictionary<string, string>(
+            Load<Dictionary<string, string>>("Dlssg2030GpuGen", new()),
+            StringComparer.OrdinalIgnoreCase);
 
         if (s.TryGetValue("ViewLayout", out var vlVal) && int.TryParse(vlVal, out var vlInt) && Enum.IsDefined(typeof(ViewLayout), vlInt))
             setViewLayout((ViewLayout)vlInt);
@@ -698,8 +711,13 @@ public class GameNameService : IGameNameService
                 else s.Remove("SfAutoConfigEnabled");
                 if (_dlssNrCostScalerEnabled.Count > 0) s["DlssNrCostScalerEnabled"] = JsonSerializer.Serialize(_dlssNrCostScalerEnabled.ToList());
                 else s.Remove("DlssNrCostScalerEnabled");
-                if (_rtx40MfgInstalled.Count > 0) s["Rtx40MfgInstalled"] = JsonSerializer.Serialize(_rtx40MfgInstalled.ToList());
-                else s.Remove("Rtx40MfgInstalled");
+                if (_rtx40MfgInstalledAs.Count > 0) s["Rtx40MfgInstalledAs"] = JsonSerializer.Serialize(_rtx40MfgInstalledAs);
+                else s.Remove("Rtx40MfgInstalledAs");
+                if (_dlssg2030InstalledAs.Count > 0) s["Dlssg2030InstalledAs"] = JsonSerializer.Serialize(_dlssg2030InstalledAs);
+                else s.Remove("Dlssg2030InstalledAs");
+                if (_dlssg2030GpuGen.Count > 0) s["Dlssg2030GpuGen"] = JsonSerializer.Serialize(_dlssg2030GpuGen);
+                else s.Remove("Dlssg2030GpuGen");
+                s.Remove("Rtx40MfgInstalled"); // remove legacy key
                 s.Remove("SfAutoConfigDisabled"); // legacy — no longer written
                 s["ViewLayout"]          = ((int)currentViewLayout).ToString();
                 s["FilterMode"]          = filterMode;
@@ -837,7 +855,9 @@ public class GameNameService : IGameNameService
         MigrateCompositeHashSet(_sfAutoConfigDisabled, oldName, newName);
         MigrateCompositeHashSet(_sfAutoConfigEnabled, oldName, newName);
         MigrateCompositeHashSet(_dlssNrCostScalerEnabled, oldName, newName);
-        MigrateCompositeHashSet(_rtx40MfgInstalled, oldName, newName);
+        MigrateCompositeDict(_rtx40MfgInstalledAs, oldName, newName);
+        MigrateCompositeDict(_dlssg2030InstalledAs, oldName, newName);
+        MigrateCompositeDict(_dlssg2030GpuGen, oldName, newName);
 
         // Migrate name-only HashSets (shared across stores)
         MigrateHashSet(_wikiExclusions, oldName, newName);

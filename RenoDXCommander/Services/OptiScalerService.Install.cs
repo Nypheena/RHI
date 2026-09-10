@@ -1063,18 +1063,7 @@ public partial class OptiScalerService
     /// </summary>
     private static void BackupOriginalIfExists(string destPath)
     {
-        if (!File.Exists(destPath)) return;
-        var backupPath = destPath + ".original";
-        if (File.Exists(backupPath)) return; // already backed up from a previous install
-        try
-        {
-            File.Move(destPath, backupPath);
-            CrashReporter.Log($"[OptiScalerService] Backed up original: {Path.GetFileName(destPath)} → {Path.GetFileName(backupPath)}");
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[OptiScalerService] Failed to back up '{Path.GetFileName(destPath)}' — {ex.Message}");
-        }
+        AuxInstallService.SentinelBackup(destPath);
     }
 
     /// <summary>
@@ -1083,23 +1072,7 @@ public partial class OptiScalerService
     /// </summary>
     private static void RestoreOriginalIfExists(string filePath)
     {
-        var backupPath = filePath + ".original";
-        if (!File.Exists(backupPath)) return;
-        try
-        {
-            // If the OptiScaler file wasn't deleted (e.g. in-use), don't overwrite it
-            if (File.Exists(filePath))
-            {
-                CrashReporter.Log($"[OptiScalerService] Cannot restore '{Path.GetFileName(filePath)}' — file still exists");
-                return;
-            }
-            File.Move(backupPath, filePath);
-            CrashReporter.Log($"[OptiScalerService] Restored original: {Path.GetFileName(backupPath)} → {Path.GetFileName(filePath)}");
-        }
-        catch (Exception ex)
-        {
-            CrashReporter.Log($"[OptiScalerService] Failed to restore '{Path.GetFileName(filePath)}' — {ex.Message}");
-        }
+        AuxInstallService.SentinelRestore(filePath);
     }
 
     /// <summary>

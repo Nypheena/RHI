@@ -302,9 +302,24 @@ public class UltimateAsiLoaderService
             if (File.Exists(dllPath))
                 File.Delete(dllPath);
 
+            // Remove the UAL INI file (same name as the DLL, e.g. winmm.dll → winmm.ini)
+            var ext       = Path.GetExtension(record.InstalledAs);
+            var nameNoExt = Path.GetFileNameWithoutExtension(record.InstalledAs);
+            var iniPath   = Path.Combine(record.InstallPath, $"{nameNoExt}.ini");
+            if (File.Exists(iniPath))
+            {
+                try
+                {
+                    File.Delete(iniPath);
+                    _crashReporter.Log($"[UltimateAsiLoaderService.Uninstall] Deleted INI '{nameNoExt}.ini' for '{card.GameName}'");
+                }
+                catch (Exception iniEx)
+                {
+                    _crashReporter.Log($"[UltimateAsiLoaderService.Uninstall] Failed to delete INI '{nameNoExt}.ini' — {iniEx.Message}");
+                }
+            }
+
             // Restore Hooked backup if it exists
-            var ext        = Path.GetExtension(record.InstalledAs);
-            var nameNoExt  = Path.GetFileNameWithoutExtension(record.InstalledAs);
             var hookedPath = Path.Combine(record.InstallPath, $"{nameNoExt}Hooked{ext}");
             if (File.Exists(hookedPath))
             {

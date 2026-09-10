@@ -166,7 +166,12 @@ public interface IGameNameService
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Absent = disabled.</summary>
     HashSet<string> SfAutoConfigEnabled { get; }
     HashSet<string> DlssNrCostScalerEnabled { get; }
-    HashSet<string> Rtx40MfgInstalled { get; }
+    /// <summary>Per-game RTX 40 MFG installed DLL name. Key = "GameName|Store", Value = DLL filename (e.g. "version.dll").</summary>
+    Dictionary<string, string> Rtx40MfgInstalledAs { get; }
+    /// <summary>Per-game 20/30 FG Unlock installed DLL name. Key = "GameName|Store", Value = DLL filename.</summary>
+    Dictionary<string, string> Dlssg2030InstalledAs { get; }
+    /// <summary>Per-game 20/30 FG Unlock GPU generation. Key = "GameName|Store", Value = "RTX 30 Series" or "RTX 20 Series".</summary>
+    Dictionary<string, string> Dlssg2030GpuGen { get; }
 
     // ── Load / Save ───────────────────────────────────────────────────────────
 

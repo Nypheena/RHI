@@ -174,10 +174,16 @@ public static class AddonPopupHelper
                 ? "DLSS5 Tool" : null;
             bool peerIsSelected = mutualExclusivePeer != null && selected.Contains(mutualExclusivePeer);
 
-            // RTX40MFG.asi conflict — MFG Ada Unlock blocked when ASI version is installed
+            // RTX 40 MFG conflict — MFG Ada Unlock blocked when new standalone DLL version is installed
             bool rtx40MfgConflict = entry.SectionId.Equals("mfgunlock", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrEmpty(installPath)
-                && File.Exists(Path.Combine(installPath, Rtx40MfgService.AsiFileName));
+                && Rtx40MfgService.KnownProxyNames.Any(n =>
+                {
+                    var candidate = Path.Combine(installPath, n);
+                    if (!File.Exists(candidate)) return false;
+                    // Confirm it's actually RTXMFG by checking the sentinel
+                    return File.Exists(candidate + ".original");
+                });
             if (rtx40MfgConflict) peerIsSelected = true;
 
             // Extras button conflict — MFG Ada Unlock blocked when already installed directly via Extras
@@ -197,7 +203,7 @@ public static class AddonPopupHelper
             };
             if (peerIsSelected)
                 ToolTipService.SetToolTip(toggle, rtx40MfgConflict
-                    ? "RTX 40 MFG Unlock (ASI) is already installed and conflicts with this addon. Remove it from the Extras section first."
+                    ? "RTX 40 MFG Unlock is already installed and conflicts with this addon. Remove it from the Extras section first."
                     : $"Disable {mutualExclusivePeer} first to enable this addon.");
 
             // Capture for the lambda

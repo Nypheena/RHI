@@ -9,25 +9,35 @@ namespace RenoDXCommander.Services;
 
 /// <summary>
 /// Manages the RTX 40 MFG Unlock component — staging, install, and uninstall.
-/// GitHub: dashdogy/RTX40MFG-Unlock. Deploys RTX40MFGCore.dll, RTX40MFG.asi,
-/// and RTX40MFG-UI.addon64 to game folders alongside UAL and ReShade.
+/// GitHub: dashdogy/RTX40MFG-Unlock. Deploys a single RTXMFG.dll renamed to a
+/// user-chosen proxy DLL name (e.g. version.dll, dinput8.dll).
 /// </summary>
 public class Rtx40MfgService
 {
-    private const string GitHubApiUrl  = "https://api.github.com/repos/dashdogy/RTX40MFG-Unlock/releases/latest";
-    private const string RepoUrl       = "https://github.com/dashdogy/RTX40MFG-Unlock";
+    private const string GitHubApiUrl = "https://api.github.com/repos/dashdogy/RTX40MFG-Unlock/releases/latest";
+    private const string RepoUrl      = "https://github.com/dashdogy/RTX40MFG-Unlock";
 
-    public const string AsiFileName    = "RTX40MFG.asi";
-    public const string CoreDllName    = "RTX40MFGCore.dll";
-    public const string AddonFileName  = "RTX40MFG-UI.addon64";
+    /// <summary>The filename of the staged/zip-extracted DLL.</summary>
+    public const string StagedDllName = "RTXMFG.dll";
 
-    private static readonly string[] DeployFiles = { AsiFileName, CoreDllName, AddonFileName };
+    /// <summary>Legacy filename — only used for migration detection.</summary>
+    public const string AsiFileName   = "RTX40MFG.asi";
 
-    private readonly HttpClient     _http;
-    private readonly ICrashReporter _crashReporter;
+    /// <summary>All valid proxy DLL names that RTXMFG.dll may be deployed as.</summary>
+    public static readonly string[] KnownProxyNames =
+    {
+        "version.dll", "dinput8.dll", "winmm.dll", "d3d9.dll", "d3d10.dll",
+        "d3d11.dll", "d3d12.dll", "dxgi.dll", "dsound.dll", "wininet.dll",
+        "winhttp.dll", "binkw64.dll", "bink2w64.dll", "xinput1_1.dll",
+        "xinput1_2.dll", "xinput1_3.dll", "xinput1_4.dll", "xinput9_1_0.dll",
+        "xinputuap.dll",
+    };
+
+    private readonly HttpClient      _http;
+    private readonly ICrashReporter  _crashReporter;
     private readonly GitHubETagCache _etagCache;
-    private readonly string         _stagingDir;
-    private readonly string         _versionFile;
+    private readonly string          _stagingDir;
+    private readonly string          _versionFile;
 
     public Rtx40MfgService(HttpClient http, ICrashReporter crashReporter, GitHubETagCache etagCache)
     {
@@ -38,22 +48,35 @@ public class Rtx40MfgService
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "RHI", "rtx40mfg");
         _versionFile   = Path.Combine(_stagingDir, "version.txt");
+
+        // One-time migration: wipe old ASI-based staging so new RTXMFG.dll will be downloaded
+        var legacyAsi = Path.Combine(_stagingDir, AsiFileName);
+        if (File.Exists(legacyAsi))
+        {
+            try
+            {
+                foreach (var f in Directory.GetFiles(_stagingDir))
+                    File.Delete(f);
+                _crashReporter.Log("[Rtx40MfgService] Wiped legacy ASI staging — new RTXMFG.dll will be downloaded");
+            }
+            catch { }
+        }
     }
 
     public string? StagedVersion => File.Exists(_versionFile)
         ? File.ReadAllText(_versionFile).Trim() : null;
 
-    public bool IsStagingReady =>
-        File.Exists(Path.Combine(_stagingDir, AsiFileName)) &&
-        File.Exists(Path.Combine(_stagingDir, CoreDllName));
+    /// <summary>Returns true when RTXMFG.dll is present in the staging directory.</summary>
+    public bool IsStagingReady => File.Exists(Path.Combine(_stagingDir, StagedDllName));
 
-    public bool HasUpdate      { get; private set; }
+    public bool HasUpdate        { get; private set; }
     public string? LatestVersion { get; private set; }
 
-    /// <summary>Returns true if the component is installed in the given game folder.</summary>
-    public static bool IsInstalled(string installPath) =>
+    /// <summary>Returns true if the component is installed in the given game folder (by stored DLL name).</summary>
+    public bool IsInstalledIn(string installPath, string? installedAs) =>
         !string.IsNullOrEmpty(installPath) &&
-        File.Exists(Path.Combine(installPath, AsiFileName));
+        !string.IsNullOrEmpty(installedAs) &&
+        File.Exists(Path.Combine(installPath, installedAs));
 
     // ── Staging ───────────────────────────────────────────────────────────────
 
@@ -84,16 +107,13 @@ public class Rtx40MfgService
                 var name = Path.GetFileName(entry.FullName);
                 if (string.IsNullOrEmpty(name)) continue;
 
-                foreach (var target in DeployFiles)
+                if (name.Equals(StagedDllName, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (name.Equals(target, StringComparison.OrdinalIgnoreCase))
-                    {
-                        var dest = Path.Combine(_stagingDir, target);
-                        using var src = entry.Open();
-                        using var dst = File.Create(dest);
-                        await src.CopyToAsync(dst).ConfigureAwait(false);
-                        break;
-                    }
+                    var dest = Path.Combine(_stagingDir, StagedDllName);
+                    using var src = entry.Open();
+                    using var dst = File.Create(dest);
+                    await src.CopyToAsync(dst).ConfigureAwait(false);
+                    break;
                 }
             }
 
@@ -168,25 +188,20 @@ public class Rtx40MfgService
 
     // ── Install ───────────────────────────────────────────────────────────────
 
-    public bool Install(string installPath, string? ualProxyName = null)
+    /// <summary>
+    /// Deploys RTXMFG.dll to the game folder renamed to <paramref name="dllName"/>.
+    /// Writes a sentinel so uninstall knows whether to restore or delete.
+    /// </summary>
+    public bool Install(string installPath, string dllName)
     {
         if (string.IsNullOrEmpty(installPath) || !IsStagingReady) return false;
-
         try
         {
-            foreach (var file in DeployFiles)
-            {
-                var src  = Path.Combine(_stagingDir, file);
-                if (!File.Exists(src)) continue;
-                var dest = Path.Combine(installPath, file);
-                File.Copy(src, dest, overwrite: true);
-            }
-
-            // Write UAL ini file so the ASI loads correctly
-            if (!string.IsNullOrEmpty(ualProxyName))
-                WriteUalIni(installPath, ualProxyName);
-
-            _crashReporter.Log($"[Rtx40MfgService.Install] Deployed to '{installPath}'");
+            var src  = Path.Combine(_stagingDir, StagedDllName);
+            var dest = Path.Combine(installPath, dllName);
+            AuxInstallService.SentinelBackup(dest);
+            File.Copy(src, dest, overwrite: true);
+            _crashReporter.Log($"[Rtx40MfgService.Install] Deployed as '{dllName}' to '{installPath}'");
             return true;
         }
         catch (Exception ex)
@@ -196,81 +211,29 @@ public class Rtx40MfgService
         }
     }
 
-    /// <summary>
-    /// Writes (or merges) the UAL ini file required for RTX40MFG.asi to load correctly.
-    /// The ini filename matches the UAL proxy DLL name (e.g. version.dll → version.ini).
-    /// Keys written: LoadPlugins=1, LoadFromScriptsOnly=1, LoadExtraPlugins=RTX40MFG.asi
-    /// Only adds missing keys — never removes existing ones.
-    /// </summary>
-    public void WriteUalIni(string installPath, string ualProxyName)
-    {
-        try
-        {
-            var iniName = Path.GetFileNameWithoutExtension(ualProxyName) + ".ini";
-            var iniPath = Path.Combine(installPath, iniName);
-
-            var lines = File.Exists(iniPath)
-                ? File.ReadAllLines(iniPath).ToList()
-                : new List<string>();
-
-            // Find or create [GlobalSets] section
-            int sectionIdx = -1;
-            for (int i = 0; i < lines.Count; i++)
-            {
-                if (lines[i].Trim().Equals("[GlobalSets]", StringComparison.OrdinalIgnoreCase))
-                { sectionIdx = i; break; }
-            }
-            if (sectionIdx < 0)
-            {
-                if (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[^1]))
-                    lines.Add("");
-                lines.Add("[GlobalSets]");
-                sectionIdx = lines.Count - 1;
-            }
-
-            // Find end of [GlobalSets] section
-            int insertAt = sectionIdx + 1;
-            while (insertAt < lines.Count && !lines[insertAt].TrimStart().StartsWith("["))
-                insertAt++;
-
-            // Keys to ensure exist
-            var required = new (string Key, string Value)[]
-            {
-                ("LoadPlugins", "1"),
-                ("LoadFromScriptsOnly", "1"),
-                ("LoadExtraPlugins", AsiFileName),
-                ("DontLoadFromDllMain", "0"),
-                ("ForceEntryPointHook", "0"),
-            };
-
-            foreach (var (key, value) in required.Reverse())
-            {
-                bool exists = lines.Any(l => l.TrimStart().StartsWith(key + "=", StringComparison.OrdinalIgnoreCase));
-                if (!exists)
-                    lines.Insert(insertAt, $"{key}={value}");
-            }
-
-            File.WriteAllLines(iniPath, lines);
-            _crashReporter.Log($"[Rtx40MfgService.WriteUalIni] Wrote '{iniName}' in '{installPath}'");
-        }
-        catch (Exception ex)
-        {
-            _crashReporter.Log($"[Rtx40MfgService.WriteUalIni] Failed — {ex.Message}");
-        }
-    }
-
     // ── Uninstall ─────────────────────────────────────────────────────────────
 
-    public void Uninstall(string installPath)
+    /// <summary>
+    /// Removes the installed DLL using sentinel restore.
+    /// Falls back to deleting legacy ASI files if <paramref name="installedAs"/> is null.
+    /// </summary>
+    public void Uninstall(string installPath, string? installedAs)
     {
         if (string.IsNullOrEmpty(installPath)) return;
-
         try
         {
-            foreach (var file in DeployFiles)
+            if (!string.IsNullOrEmpty(installedAs))
             {
-                var path = Path.Combine(installPath, file);
-                try { if (File.Exists(path)) File.Delete(path); } catch { }
+                AuxInstallService.SentinelRestore(Path.Combine(installPath, installedAs));
+            }
+            else
+            {
+                // Legacy fallback: remove the old ASI-based files
+                foreach (var legacyFile in new[] { AsiFileName, "RTX40MFGCore.dll", "RTX40MFG-UI.addon64" })
+                {
+                    var p = Path.Combine(installPath, legacyFile);
+                    try { if (File.Exists(p)) File.Delete(p); } catch { }
+                }
             }
             _crashReporter.Log($"[Rtx40MfgService.Uninstall] Removed from '{installPath}'");
         }

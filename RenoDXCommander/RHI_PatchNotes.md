@@ -3,6 +3,8 @@
 
 ### New
 
+- **RTX 40 MFG Unlock v1.3** — updated to the new standalone single-DLL format. No longer requires ASI Loader. When you click Install, RHI now asks you to choose a DLL name (version.dll, dinput8.dll, etc.) and deploys `RTXMFG.dll` under that name. The existing staging folder is automatically wiped on first launch so the new version downloads cleanly.
+- **20/30 FG Unlock** — new entry in the MFG Unlocks section. Enables DLSS Frame Generation on RTX 20 and 30 series GPUs (D3D12 only, no ReShade or ASI Loader required). Select your GPU generation (RTX 30 / RTX 20) in the cog before installing. RHI deploys the DLL and configures `dlssg_sm86.ini` automatically, and keeps both files updated.
 - **Resolution & Colour Control** — automatically switch your desktop resolution when a game launches and restore it on exit. Set your target resolution and enable per-game or globally from the new Resolution & Colour Control card in Settings. Also includes Output Colour Settings to set display colour depth and dynamic range per-monitor without touching NVIDIA Control Panel.
 - **Standalone DLSS Enabler** — new row in the Extras section lets you install DLSS Enabler directly into any game's root folder as a proxy DLL (version.dll, winmm.dll, etc.), independent of OptiScaler. Automatically updates alongside the OptiScaler-bundled version.
 - **MFG Ada Unlock** — new row in the Extras section installs MFG Ada Unlock directly from the addon cache. Mutually exclusive with RTX 40 MFG Unlock. Requires ReShade.
@@ -12,14 +14,18 @@
 - Changing a DLSS preset, render scale, or driver override in the NVIDIA Profile Overrides section no longer flashes or rebuilds the panel — the value is written immediately and the combo stays exactly as you set it.
 - Extras section install buttons (ASI Loader, RTX 40 MFG, DLSS Enabler) now show the same blue installed style as the Components section when installed.
 - Extras section is now categorised with separators: ASI Loader at the top, MFG Unlocks group (RTX 40 MFG and MFG Ada Unlock), and Other group (OptiScaler and DLSS Enabler).
-- RTX 40 MFG install button now shows "ASI Loader required" when ASI Loader is not installed.
 - Neural Rendering: added a note below the NR Cost Scaler toggle when ShortFuse method is selected explaining that Cost Scaler is now built into the addon.
+
+### Maintenance
+
+- Unified DLL backup/restore across all components behind a shared sentinel pattern. When RHI deploys a DLL to a game folder, it now always writes a `.original` file alongside it — a real copy if the game already had that file, or a 0-byte sentinel if it didn't. On uninstall, RHI uses the sentinel to decide whether to restore the game's original or simply delete the file it placed. This eliminates cases where game-original DLLs were silently overwritten and unrecoverable, and eliminates orphaned 0-byte `.original` files left behind after uninstall. Covers: OptiScaler (main DLL, companion DLLs, all DLSS DLLs), DLSS version swaps, RE Framework, and Luma post-install DLSS deployment.
 
 ### Bug Fixes
 
 - Fixed DLSS Fix writing the wrong path for `sl.interposer.dll` in `reshade.ini` — it was writing the path to `sl.common.dll` instead, which caused DLSS Fix to fail to hook Streamline correctly.
 - Fixed DLSS Fix INI settings not being written at all when Streamline was detected after the initial scan (e.g. added by a game update or another component install in the same session).
 - Fixed NR Cost Scaler toggle remaining greyed out all session on a fresh install — staging downloads in the background at startup but the toggle never updated to reflect it, requiring an NR method install+uninstall cycle to un-grey it.
+- Fixed ASI Loader leaving its INI file behind on uninstall (e.g. `winmm.dll` uninstall now also removes `winmm.ini`).
 - Fixed a crash when clicking "Apply Peak Nits to All" or "Apply to All Games" in Settings when a game's install folder no longer exists on disk.
 - Fixed Admin Mode not being recognised on certain configurations — RHI now uses a practical write-access check to detect administrator privileges, which correctly handles accounts running with full admin rights even when the standard token elevation check returns false.
 - Fixed the Neural Rendering section showing ReShade as not installed immediately after installing it — navigating away and back was required to update the status. The status bar now always reflects the current install state.

@@ -97,6 +97,7 @@ public class REFrameworkService : IREFrameworkService
 
             // ── Copy cached DLL to game directory ─────────────────────────────
             progress?.Report(("Installing dinput8.dll...", 80));
+            AuxInstallService.SentinelBackup(destPath);
             File.Copy(cachedDll, destPath, overwrite: true);
 
             // ── Fetch version tag ─────────────────────────────────────────────
@@ -241,11 +242,7 @@ public class REFrameworkService : IREFrameworkService
     public void Uninstall(string gameName, string installPath)
     {
         var dllPath = Path.Combine(installPath, DllFileName);
-        if (File.Exists(dllPath))
-        {
-            File.Delete(dllPath);
-            CrashReporter.Log($"[REFrameworkService.Uninstall] Deleted {DllFileName} from {installPath}");
-        }
+        AuxInstallService.SentinelRestore(dllPath);
 
         RemoveRecord(gameName, installPath);
     }

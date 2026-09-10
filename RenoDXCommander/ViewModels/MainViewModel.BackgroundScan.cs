@@ -142,6 +142,15 @@ public partial class MainViewModel
                 }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] RTX40MFG staging failed — {ex.Message}"); }
             });
+            var dlssg2030Task = Task.Run(async () => {
+                try
+                {
+                    await _dlssg2030Service.CheckForUpdateAsync();
+                    if (!_dlssg2030Service.IsStagingReady || _dlssg2030Service.HasUpdate)
+                        await _dlssg2030Service.EnsureStagingAsync();
+                }
+                catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Dlssg2030 staging failed — {ex.Message}"); }
+            });
             var ualTask = Task.Run(async () => {
                 try
                 {
@@ -176,6 +185,7 @@ public partial class MainViewModel
                     DispatcherQueue?.TryEnqueue(() => RequestCardRebuild?.Invoke(sel));
             }
             try { await rtx40MfgTask; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] RTX40MFG staging await failed — {ex.Message}"); }
+            try { await dlssg2030Task; } catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Dlssg2030 staging await failed — {ex.Message}"); }
 
             // Apply manifest-driven shader pack and addon pack overrides
             (_shaderPackService as ShaderPackService)?.ApplyManifestOverrides(_manifest);
@@ -385,11 +395,20 @@ public partial class MainViewModel
                             && DlssNrCostScalerService.IsInstalled(c.InstallPath)
                             && _nrCostScalerService.HasUpdate))
                             _nrCostScalerService.Install(c.InstallPath);
-                    if (_rtx40MfgService.IsStagingReady)
-                        foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)
-                            && Rtx40MfgService.IsInstalled(c.InstallPath)
-                            && _rtx40MfgService.HasUpdate))
-                            _rtx40MfgService.Install(c.InstallPath, GetUalInstalledAs(c.GameName, c.Source ?? ""));
+                    if (_rtx40MfgService.IsStagingReady && _rtx40MfgService.HasUpdate)
+                        foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)))
+                        {
+                            var installedAs = GetRtx40MfgInstalledAs(c.GameName, c.Source ?? "");
+                            if (!string.IsNullOrEmpty(installedAs) && File.Exists(Path.Combine(c.InstallPath!, installedAs)))
+                                _rtx40MfgService.Install(c.InstallPath!, installedAs);
+                        }
+                    if (_dlssg2030Service.IsStagingReady && _dlssg2030Service.HasUpdate)
+                        foreach (var c in _allCards.Where(c => !string.IsNullOrEmpty(c.InstallPath)))
+                        {
+                            var installedAs = GetDlssg2030InstalledAs(c.GameName, c.Source ?? "");
+                            if (!string.IsNullOrEmpty(installedAs) && File.Exists(Path.Combine(c.InstallPath!, installedAs)))
+                                _dlssg2030Service.Update(c.InstallPath!, installedAs, GetDlssg2030GpuGen(c.GameName, c.Source ?? ""));
+                        }
                 }
                 catch (Exception ex) { _crashReporter.Log($"[RunBackgroundScanAndMergeAsync] Cost Scaler/RTX40MFG auto-deploy failed — {ex.Message}"); }
 

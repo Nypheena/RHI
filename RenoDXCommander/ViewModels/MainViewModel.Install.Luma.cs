@@ -848,6 +848,7 @@ public partial class MainViewModel
                 if (newestDlssPath != null && File.Exists(newestDlssPath))
                 {
                     var targetDlssPath = Path.Combine(card.InstallPath, "nvngx_dlss.dll");
+                    AuxInstallService.SentinelBackup(targetDlssPath);
                     File.Copy(newestDlssPath, targetDlssPath, overwrite: true);
                     _crashReporter.Log($"[InstallLumaAsync] Deployed newest DLSS to '{targetDlssPath}'");
                 }
