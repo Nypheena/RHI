@@ -159,6 +159,8 @@ public interface IGameNameService
     Dictionary<string, string> OsStreamlineVersion { get; }
     /// <summary>Per-game UAL installed DLL name. Composite-keyed "GameName|Store".</summary>
     Dictionary<string, string> UalInstalledAs { get; }
+    /// <summary>Per-game standalone DLSS Enabler installed DLL name. Composite-keyed "GameName|Store".</summary>
+    Dictionary<string, string> DeInstalledAs { get; }
     /// <summary>Legacy — games where ShortFuse auto-config was disabled. Kept for migration only.</summary>
     HashSet<string> SfAutoConfigDisabled { get; }
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Absent = disabled.</summary>

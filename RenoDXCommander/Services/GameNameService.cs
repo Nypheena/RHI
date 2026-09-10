@@ -111,6 +111,9 @@ public class GameNameService : IGameNameService
     /// <summary>Per-game Ultimate ASI Loader installed DLL name. Key = "GameName|Store", Value = dll filename. Absent = not installed.</summary>
     private Dictionary<string, string> _ualInstalledAs = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Per-game standalone DLSS Enabler installed DLL name. Key = "GameName|Store", Value = dll filename. Absent = not installed.</summary>
+    private Dictionary<string, string> _deInstalledAs = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Games where ShortFuse auto-config is DISABLED. Composite-keyed. Legacy — kept for migration only.</summary>
     private HashSet<string> _sfAutoConfigDisabled = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Games where ShortFuse auto-config is ENABLED. Composite-keyed "GameName|Store". Absent = disabled (default).</summary>
@@ -211,6 +214,8 @@ public class GameNameService : IGameNameService
     public Dictionary<string, string> OsStreamlineVersion => _osStreamlineVersion;
     /// <summary>Per-game Ultimate ASI Loader installed DLL name. Composite-keyed "GameName|Store".</summary>
     public Dictionary<string, string> UalInstalledAs => _ualInstalledAs;
+    /// <summary>Per-game standalone DLSS Enabler installed DLL name. Composite-keyed "GameName|Store".</summary>
+    public Dictionary<string, string> DeInstalledAs => _deInstalledAs;
     /// <summary>Games where ShortFuse auto-config is disabled. Legacy — kept for migration only.</summary>
     public HashSet<string> SfAutoConfigDisabled => _sfAutoConfigDisabled;
     /// <summary>Games where ShortFuse auto-config is explicitly enabled. Composite-keyed "GameName|Store". Absent = disabled.</summary>
@@ -570,6 +575,10 @@ public class GameNameService : IGameNameService
         _ualInstalledAs = new(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in ualInstalledAsDict) _ualInstalledAs[kv.Key] = kv.Value;
 
+        var deInstalledAsDict = Load<Dictionary<string, string>>("DeInstalledAs", new(StringComparer.OrdinalIgnoreCase));
+        _deInstalledAs = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in deInstalledAsDict) _deInstalledAs[kv.Key] = kv.Value;
+
         _sfAutoConfigDisabled = new HashSet<string>(
             Load<List<string>>("SfAutoConfigDisabled", new()), StringComparer.OrdinalIgnoreCase);
         _sfAutoConfigEnabled = new HashSet<string>(
@@ -683,6 +692,8 @@ public class GameNameService : IGameNameService
                 s["OsUpscalerPlugin"] = JsonSerializer.Serialize(_osUpscalerPlugin.ToList());
                 if (_osStreamlineVersion.Count > 0) s["OsStreamlineVersion"] = JsonSerializer.Serialize(_osStreamlineVersion);
                 if (_ualInstalledAs.Count > 0) s["UalInstalledAs"] = JsonSerializer.Serialize(_ualInstalledAs);
+                if (_deInstalledAs.Count > 0) s["DeInstalledAs"] = JsonSerializer.Serialize(_deInstalledAs);
+                else s.Remove("DeInstalledAs");
                 if (_sfAutoConfigEnabled.Count > 0) s["SfAutoConfigEnabled"] = JsonSerializer.Serialize(_sfAutoConfigEnabled.ToList());
                 else s.Remove("SfAutoConfigEnabled");
                 if (_dlssNrCostScalerEnabled.Count > 0) s["DlssNrCostScalerEnabled"] = JsonSerializer.Serialize(_dlssNrCostScalerEnabled.ToList());
@@ -822,6 +833,7 @@ public class GameNameService : IGameNameService
         MigrateCompositeHashSet(_osUpscalerPlugin, oldName, newName);
         MigrateCompositeDict(_osStreamlineVersion, oldName, newName);
         MigrateCompositeDict(_ualInstalledAs, oldName, newName);
+        MigrateCompositeDict(_deInstalledAs, oldName, newName);
         MigrateCompositeHashSet(_sfAutoConfigDisabled, oldName, newName);
         MigrateCompositeHashSet(_sfAutoConfigEnabled, oldName, newName);
         MigrateCompositeHashSet(_dlssNrCostScalerEnabled, oldName, newName);

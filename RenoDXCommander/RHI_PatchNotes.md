@@ -4,6 +4,12 @@
 ### New
 
 - **Resolution & Colour Control** — automatically switch your desktop resolution when a game launches and restore it on exit. Set your target resolution and enable per-game or globally from the new Resolution & Colour Control card in Settings. Also includes Output Colour Settings to set display colour depth and dynamic range per-monitor without touching NVIDIA Control Panel.
+- **Standalone DLSS Enabler** — new row in the Extras section lets you install DLSS Enabler directly into any game's root folder as a proxy DLL (version.dll, winmm.dll, etc.), independent of OptiScaler. Automatically updates alongside the OptiScaler-bundled version.
+
+### Changes
+
+- Changing a DLSS preset, render scale, or driver override in the NVIDIA Profile Overrides section no longer flashes or rebuilds the panel — the value is written immediately and the combo stays exactly as you set it.
+- Extras section install buttons (ASI Loader, RTX 40 MFG, DLSS Enabler) now show the same blue installed style as the Components section when installed.
 
 ### Bug Fixes
 

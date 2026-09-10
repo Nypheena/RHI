@@ -956,6 +956,20 @@ public partial class DetailPanelBuilder
         costScalerRow.Children.Add(costScalerStatus);
         nrBody.Children.Add(costScalerRow);
 
+        // Note shown when ShortFuse method is selected — cost scaler is now built into 310.8.2
+        if (effectiveMethod == NrMethodShortFuse)
+        {
+            nrBody.Children.Add(new TextBlock
+            {
+                Text = "Cost Scaler is built into the ShortFuse 310.8.2 build — this toggle is no longer required but remains available if you prefer the standalone version.",
+                FontSize = 10,
+                Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0),
+                Opacity = 0.8,
+            });
+        }
+
         // ── How to use links ──────────────────────────────────────────────────
         var linksRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0) };
         HyperlinkButton MakeLink(string text, string url) => new HyperlinkButton

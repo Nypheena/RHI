@@ -1214,7 +1214,10 @@ public partial class MainViewModel
                 var dlssEnablerService = App.Services.GetRequiredService<DlssEnablerService>();
                 bool deHasUpdate = await dlssEnablerService.CheckForUpdateAsync().ConfigureAwait(false);
                 if (deHasUpdate)
+                {
                     await dlssEnablerService.EnsureStagingAsync().ConfigureAwait(false);
+                    dlssEnablerService.AutoUpdateStandaloneInstalls(_allCards, this);
+                }
             }
             catch (Exception ex)
             {

@@ -508,6 +508,29 @@ public partial class MainViewModel
         SaveNameMappings();
     }
 
+    // ── Standalone DLSS Enabler ───────────────────────────────────────────────
+
+    public string? GetDeInstalledAs(string gameName, string store)
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (_gameNameService.DeInstalledAs.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v)) return v;
+        if (_gameNameService.DeInstalledAs.TryGetValue(gameName, out var vLegacy) && !string.IsNullOrEmpty(vLegacy)) return vLegacy;
+        return null;
+    }
+
+    public void SetDeInstalledAs(string gameName, string? dllName, string store)
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (string.IsNullOrEmpty(dllName))
+        {
+            _gameNameService.DeInstalledAs.Remove(key);
+            _gameNameService.DeInstalledAs.Remove(gameName);
+        }
+        else
+            _gameNameService.DeInstalledAs[key] = dllName;
+        SaveNameMappings();
+    }
+
     // ── ShortFuse Auto-Config ─────────────────────────────────────────────────
 
     /// <summary>Returns true when ShortFuse auto-config is enabled for this game (default: disabled when absent).</summary>
