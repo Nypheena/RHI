@@ -180,6 +180,12 @@ public static class AddonPopupHelper
                 && File.Exists(Path.Combine(installPath, Rtx40MfgService.AsiFileName));
             if (rtx40MfgConflict) peerIsSelected = true;
 
+            // Extras button conflict — MFG Ada Unlock blocked when already installed directly via Extras
+            bool extrasInstalledConflict = entry.SectionId.Equals("mfgunlock", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(installPath)
+                && File.Exists(Path.Combine(installPath, "renodx-mfgunlock.addon64"));
+            if (extrasInstalledConflict) peerIsSelected = true;
+
             var toggle = new ToggleSwitch
             {
                 IsOn = isSelected,

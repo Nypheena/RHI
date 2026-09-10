@@ -961,7 +961,7 @@ public partial class DetailPanelBuilder
         {
             nrBody.Children.Add(new TextBlock
             {
-                Text = "Cost Scaler is built into the ShortFuse 310.8.2 build — this toggle is no longer required but remains available if you prefer the standalone version.",
+                Text = "Cost Scaler is built into the ShortFuse addon — this toggle is no longer required but remains available if you prefer the standalone version.",
                 FontSize = 10,
                 Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
                 TextWrapping = TextWrapping.Wrap,

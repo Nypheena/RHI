@@ -1594,9 +1594,10 @@
                                             <Button Grid.Column="2" Content="Apply"
                                                     x:Name="ColorApplyBtn" x:FieldModifier="internal"
                                                     Click="ColorApplyBtn_Click"
-                                                    Background="{StaticResource AccentTealBrush}"
-                                                    Foreground="White"
-                                                    BorderThickness="0" CornerRadius="6"
+                                                    Background="{StaticResource AccentBlueBgBrush}"
+                                                    Foreground="{StaticResource AccentBlueBrush}"
+                                                    BorderBrush="{StaticResource AccentBlueBorderBrush}"
+                                                    BorderThickness="1" CornerRadius="6"
                                                     Padding="12,6" MinWidth="0" MinHeight="0"
                                                     FontSize="12" VerticalAlignment="Bottom"/>
                                         </Grid>

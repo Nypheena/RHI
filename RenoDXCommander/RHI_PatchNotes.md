@@ -5,11 +5,15 @@
 
 - **Resolution & Colour Control** — automatically switch your desktop resolution when a game launches and restore it on exit. Set your target resolution and enable per-game or globally from the new Resolution & Colour Control card in Settings. Also includes Output Colour Settings to set display colour depth and dynamic range per-monitor without touching NVIDIA Control Panel.
 - **Standalone DLSS Enabler** — new row in the Extras section lets you install DLSS Enabler directly into any game's root folder as a proxy DLL (version.dll, winmm.dll, etc.), independent of OptiScaler. Automatically updates alongside the OptiScaler-bundled version.
+- **MFG Ada Unlock** — new row in the Extras section installs MFG Ada Unlock directly from the addon cache. Mutually exclusive with RTX 40 MFG Unlock. Requires ReShade.
 
 ### Changes
 
 - Changing a DLSS preset, render scale, or driver override in the NVIDIA Profile Overrides section no longer flashes or rebuilds the panel — the value is written immediately and the combo stays exactly as you set it.
 - Extras section install buttons (ASI Loader, RTX 40 MFG, DLSS Enabler) now show the same blue installed style as the Components section when installed.
+- Extras section is now categorised with separators: ASI Loader at the top, MFG Unlocks group (RTX 40 MFG and MFG Ada Unlock), and Other group (OptiScaler and DLSS Enabler).
+- RTX 40 MFG install button now shows "ASI Loader required" when ASI Loader is not installed.
+- Neural Rendering: added a note below the NR Cost Scaler toggle when ShortFuse method is selected explaining that Cost Scaler is now built into the addon.
 
 ### Bug Fixes
 
@@ -17,6 +21,7 @@
 - Fixed Admin Mode not being recognised on certain configurations — RHI now uses a practical write-access check to detect administrator privileges, which correctly handles accounts running with full admin rights even when the standard token elevation check returns false.
 - Fixed the Neural Rendering section showing ReShade as not installed immediately after installing it — navigating away and back was required to update the status. The status bar now always reflects the current install state.
 - Fixed RE Framework showing a stale build number on the card when the framework had been updated — the displayed version now syncs to the actual installed build on the next update check.
+- Fixed NVIDIA Profile Overrides showing Default/Off on launch until a Refresh — a thread-safety race between NVAPI initialization and the panel scan caused `GetPreset` to throw, silently returning 0 for all values.
 
 ### Manifest Updates
 

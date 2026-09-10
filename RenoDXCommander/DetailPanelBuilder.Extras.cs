@@ -73,8 +73,17 @@ public partial class DetailPanelBuilder
         // ── Ultimate ASI Loader row ───────────────────────────────────────────
         BuildUalRow(card, exBody);
 
+        // ── MFG Unlocks separator ─────────────────────────────────────────────
+        exBody.Children.Add(MakeExtrasSeparator("MFG Unlocks"));
+
         // ── RTX 40 MFG Unlock row ─────────────────────────────────────────────
         BuildRtx40MfgRow(card, exBody);
+
+        // ── MFG Ada Unlock row ────────────────────────────────────────────────
+        BuildMfgAdaUnlockRow(card, exBody);
+
+        // ── Other separator ───────────────────────────────────────────────────
+        exBody.Children.Add(MakeExtrasSeparator("Other"));
 
         // ── OptiScaler row ────────────────────────────────────────────────────
         BuildOsRow(card, exBody);
@@ -121,6 +130,29 @@ public partial class DetailPanelBuilder
             if (_currentDetailCard != card) return;
             BuildExtrasSection(card);
         });
+    }
+
+    private static Grid MakeExtrasSeparator(string label)
+    {
+        var grid = new Grid { ColumnSpacing = 8, Margin = new Thickness(0, 4, 0, 2) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+
+        var text = new TextBlock
+        {
+            Text = $"———  {label}  ———",
+            FontSize = 11,
+            Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(text, 3);
+        grid.Children.Add(text);
+        return grid;
     }
 
     private void BuildUalRow(GameCardViewModel card, StackPanel body)
@@ -324,6 +356,224 @@ public partial class DetailPanelBuilder
             ualSvc.Uninstall(card);
             _window.ViewModel.SetUalInstalledAs(gameName, null, store);
             RequestExtrasRebuild(card);
+        };
+        Grid.SetColumn(removeBtn, 5);
+        row.Children.Add(removeBtn);
+
+        body.Children.Add(row);
+    }
+
+    private void BuildMfgAdaUnlockRow(GameCardViewModel card, StackPanel body)
+    {
+        var gameName    = card.GameName;
+        var store       = card.Source ?? "";
+        var installPath = card.InstallPath ?? "";
+
+        const string DeployFileName  = "renodx-mfgunlock.addon64";
+        const string StagedFileName  = "MFG Ada Unlock.addon64";
+        var stagedPath  = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "RHI", "addons", StagedFileName);
+
+        bool isInstalled   = !string.IsNullOrEmpty(installPath) && File.Exists(Path.Combine(installPath, DeployFileName));
+        bool rsInstalled   = card.IsRsInstalled;
+        bool rtx40Conflict = !string.IsNullOrEmpty(installPath) && File.Exists(Path.Combine(installPath, Rtx40MfgService.AsiFileName));
+        bool staged        = File.Exists(stagedPath);
+
+        var   addonVersion = AddonPackService.LoadAddonVersion("MFG Ada Unlock");
+        string statusText  = isInstalled ? (string.IsNullOrEmpty(addonVersion) ? "Installed" : $"v{addonVersion}") : "Ready";
+        string statusColor = isInstalled ? "#5ECB7D" : "#A0AABB";
+
+        var row = new Grid { ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+
+        // Col 0 — label
+        var label = new TextBlock
+        {
+            Text = "MFG Ada Unlock",
+            FontSize = 12,
+            Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        ToolTipService.SetToolTip(label, "MFG Ada Unlock — unlocks DLSS Multi Frame Generation (3x/4x+) on RTX 40-series GPUs. Requires ReShade. In-memory only, no files modified.");
+        Grid.SetColumn(label, 0);
+        row.Children.Add(label);
+
+        // Col 1 — status
+        var statusBlock = new TextBlock
+        {
+            Text = statusText,
+            FontSize = 12,
+            Foreground = UIFactory.GetBrush(statusColor),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalTextAlignment = Microsoft.UI.Xaml.TextAlignment.Center,
+            TextDecorations = isInstalled ? Windows.UI.Text.TextDecorations.Underline : Windows.UI.Text.TextDecorations.None,
+        };
+        if (isInstalled)
+        {
+            ToolTipService.SetToolTip(statusBlock, "Click to open GitHub releases");
+            statusBlock.PointerPressed += (s, e) =>
+                _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/mavismmg/MFGAdaUnlock-RenoDx/releases"));
+        }
+        Grid.SetColumn(statusBlock, 1);
+        row.Children.Add(statusBlock);
+
+        // Col 2 — Info button (always blue)
+        var infoBtn = new Button
+        {
+            Content = "Info",
+            FontSize = 11,
+            Padding = new Thickness(6, 2, 6, 2),
+            Width = 36,
+            Height = 32,
+            Background = UIFactory.Brush(ResourceKeys.AccentBlueBgBrush),
+            Foreground = UIFactory.Brush(ResourceKeys.AccentBlueBrush),
+            BorderBrush = UIFactory.Brush(ResourceKeys.AccentBlueBorderBrush),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+        };
+        ToolTipService.SetToolTip(infoBtn, "Open MFG Ada Unlock GitHub page");
+        infoBtn.Click += (s, e) =>
+            _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/mavismmg/MFGAdaUnlock-RenoDx"));
+        Grid.SetColumn(infoBtn, 2);
+        row.Children.Add(infoBtn);
+
+        // Col 3 — Install button
+        string btnLabel;
+        bool btnEnabled = true;
+        if (!rsInstalled)
+        {
+            btnLabel   = "⚠  ReShade required";
+            btnEnabled = false;
+        }
+        else if (rtx40Conflict)
+        {
+            btnLabel   = "⚠  RTX 40 MFG installed";
+            btnEnabled = false;
+        }
+        else if (!staged)
+        {
+            btnLabel   = "⬇  Install MFG Ada Unlock";
+            btnEnabled = false; // not staged yet — will be available after first addon picker use
+        }
+        else
+        {
+            btnLabel = isInstalled ? "↺  Reinstall MFG Ada Unlock" : "⬇  Install MFG Ada Unlock";
+        }
+
+        var installBtn = new Button
+        {
+            Content = btnLabel,
+            FontSize = 12,
+            Height = 32,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            CornerRadius = new CornerRadius(8),
+            Background = isInstalled ? UIFactory.GetBrush("#182840") : UIFactory.Brush(ResourceKeys.AccentBlueBgBrush),
+            Foreground = isInstalled ? UIFactory.GetBrush("#7AACDD") : UIFactory.Brush(ResourceKeys.AccentBlueBrush),
+            BorderBrush = isInstalled ? UIFactory.GetBrush("#2A4468") : UIFactory.Brush(ResourceKeys.AccentBlueBorderBrush),
+            BorderThickness = new Thickness(1),
+            IsEnabled = btnEnabled,
+            Opacity = btnEnabled ? 1.0 : 0.35,
+        };
+
+        if (!rsInstalled)
+            ToolTipService.SetToolTip(installBtn, "Install ReShade first — MFG Ada Unlock requires it");
+        else if (rtx40Conflict)
+            ToolTipService.SetToolTip(installBtn, "RTX 40 MFG Unlock (ASI version) is already installed and conflicts. Remove it first.");
+        else if (!staged)
+            ToolTipService.SetToolTip(installBtn, "MFG Ada Unlock not yet downloaded — open the addon picker first to download it");
+
+        installBtn.Click += (s, e) =>
+        {
+            if (string.IsNullOrEmpty(installPath) || !File.Exists(stagedPath)) return;
+            try
+            {
+                var dest = Path.Combine(installPath, DeployFileName);
+                File.Copy(stagedPath, dest, overwrite: true);
+                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Installed '{DeployFileName}' to '{installPath}'");
+                RequestExtrasRebuild(card);
+            }
+            catch (Exception ex)
+            {
+                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Install failed — {ex.Message}");
+            }
+        };
+        Grid.SetColumn(installBtn, 3);
+        row.Children.Add(installBtn);
+
+        // Col 4 — Cog (placeholder for consistency)
+        var cogBtn = new Button
+        {
+            Width = 36,
+            Height = 32,
+            Padding = new Thickness(0),
+            Background = UIFactory.Brush(ResourceKeys.SurfaceOverlayBrush),
+            Foreground = UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
+            BorderBrush = UIFactory.Brush(ResourceKeys.BorderDefaultBrush),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Content = new TextBlock { Text = "⚙", FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center },
+        };
+        ToolTipService.SetToolTip(cogBtn, "MFG Ada Unlock settings");
+        cogBtn.Click += async (s, e) =>
+        {
+            var dlg = new ContentDialog
+            {
+                Title = "MFG Ada Unlock",
+                Content = new TextBlock
+                {
+                    Text = "MFG Ada Unlock unlocks DLSS Multi Frame Generation (3x/4x and above) on RTX 40-series GPUs.\n\n" +
+                           "Configure via the ReShade overlay in-game.",
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                PrimaryButtonText = "Open GitHub",
+                CloseButtonText = "Close",
+                XamlRoot = _window.Content.XamlRoot,
+                RequestedTheme = ElementTheme.Dark,
+            };
+            var result = await DialogService.ShowSafeAsync(dlg);
+            if (result == ContentDialogResult.Primary)
+                _ = Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/mavismmg/MFGAdaUnlock-RenoDx"));
+        };
+        Grid.SetColumn(cogBtn, 4);
+        row.Children.Add(cogBtn);
+
+        // Col 5 — Remove button
+        var removeBtn = new Button
+        {
+            Width = 36,
+            Height = 32,
+            Padding = new Thickness(0),
+            Background = UIFactory.Brush(ResourceKeys.AccentRedBgBrush),
+            Foreground = UIFactory.Brush(ResourceKeys.AccentRedBrush),
+            BorderBrush = UIFactory.Brush(ResourceKeys.AccentPurpleBorderBrush),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Content = new TextBlock { Text = "✕", FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Foreground = UIFactory.Brush(ResourceKeys.AccentRedBrush) },
+            Opacity = isInstalled ? 1.0 : 0,
+            IsHitTestVisible = isInstalled,
+        };
+        ToolTipService.SetToolTip(removeBtn, "Remove MFG Ada Unlock from this game");
+        removeBtn.Click += (s, e) =>
+        {
+            if (string.IsNullOrEmpty(installPath)) return;
+            try
+            {
+                var dest = Path.Combine(installPath, DeployFileName);
+                if (File.Exists(dest)) File.Delete(dest);
+                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed '{DeployFileName}' from '{installPath}'");
+                RequestExtrasRebuild(card);
+            }
+            catch (Exception ex)
+            {
+                CrashReporter.Log($"[BuildMfgAdaUnlockRow] Remove failed — {ex.Message}");
+            }
         };
         Grid.SetColumn(removeBtn, 5);
         row.Children.Add(removeBtn);
@@ -716,7 +966,7 @@ public partial class DetailPanelBuilder
         // Col 3 — Install button
         var installBtn = new Button
         {
-            Content = isInstalled ? "↺  Reinstall RTX 40 MFG" : "⬇  Install RTX 40 MFG",
+            Content = !ualInstalled ? "⚠  ASI Loader required" : isInstalled ? "↺  Reinstall RTX 40 MFG" : "⬇  Install RTX 40 MFG",
             FontSize = 12,
             Height = 32,
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -807,8 +1057,8 @@ public partial class DetailPanelBuilder
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Content = new TextBlock { Text = "⚙", FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center },
-            IsEnabled = ualInstalled,
-            Opacity = ualInstalled ? 1.0 : 0.35,
+            IsEnabled = true,
+            Opacity = 1.0,
         };
         ToolTipService.SetToolTip(cogBtn, "RTX 40 MFG settings — configure multiplier mode");
         cogBtn.Click += async (s, e) =>
@@ -937,9 +1187,9 @@ public partial class DetailPanelBuilder
             Padding = new Thickness(6, 2, 6, 2),
             Width = 36,
             Height = 32,
-            Background = isInstalled ? UIFactory.Brush(ResourceKeys.AccentBlueBgBrush) : UIFactory.Brush(ResourceKeys.SurfaceOverlayBrush),
-            Foreground = isInstalled ? UIFactory.Brush(ResourceKeys.AccentBlueBrush) : UIFactory.Brush(ResourceKeys.TextSecondaryBrush),
-            BorderBrush = isInstalled ? UIFactory.Brush(ResourceKeys.AccentBlueBorderBrush) : UIFactory.Brush(ResourceKeys.BorderDefaultBrush),
+            Background = UIFactory.Brush(ResourceKeys.AccentBlueBgBrush),
+            Foreground = UIFactory.Brush(ResourceKeys.AccentBlueBrush),
+            BorderBrush = UIFactory.Brush(ResourceKeys.AccentBlueBorderBrush),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
         };

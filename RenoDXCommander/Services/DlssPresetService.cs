@@ -451,11 +451,13 @@ public partial class DlssPresetService
             catch { DriverVersionString = ""; }
 
             _session = DriverSettingsSession.CreateAndLoad();
-            _cachedProfiles = new Dictionary<string, DriverSettingsProfile>(StringComparer.OrdinalIgnoreCase);
+            // Build the profile cache into a local dict first, then assign atomically.
+            // This prevents a race where GetPreset/FindProfile reads the field while
+            // Initialize() is still enumerating _session.Profiles to populate it.
+            var newProfiles = new Dictionary<string, DriverSettingsProfile>(StringComparer.OrdinalIgnoreCase);
             foreach (var profile in _session.Profiles)
-            {
-                _cachedProfiles.TryAdd(profile.Name, profile);
-            }
+                newProfiles.TryAdd(profile.Name, profile);
+            _cachedProfiles = newProfiles;  // single atomic assignment — no partial state visible to readers
             InvalidateProfileLookupCache();
             _isSupported = true;
 
