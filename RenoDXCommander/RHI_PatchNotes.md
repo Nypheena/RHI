@@ -6,6 +6,7 @@
 
 ### Changes
 
+- **GitHub API token support** — if you're hitting GitHub API rate limits (things not updating, "staging not available" errors), create `%LocalAppData%\RHI\github_api.txt` and paste a GitHub personal access token on a single line. No scopes needed — a token for public repos only is sufficient and takes about 30 seconds to generate at github.com/settings/tokens. Raises the rate limit from 60 to 5000 requests/hour.
 - **PCGW API detection** — RHI now quietly scrapes PCGamingWiki in the background to verify DirectX versions. Games that PE scanning can't read (Xbox/Game Pass titles, access-denied paths) now show the correct DX11/DX12 badge where PCGW has the data. Halo Infinite, Resonance, and similar Xbox titles that previously showed no API now correctly show DX12.
 - **Neural Rendering: Feeder and Bridge now support addon version pinning** — the Addon Version dropdown is now active for all four NR methods. For Feeder, the combo controls which version of `renodx-dlss5.addon64` is deployed as the neural consumer — the Feeder addon itself (`dlss5-feed.addon64`) always uses the latest version. For Bridge, the combo already controlled the DLSS5 Tool version.
 - **OptiScaler cog Upscaler API defaults to the game's detected API** — opening the cog on a DX12 game now shows DX12 selected instead of always defaulting to DX11.
