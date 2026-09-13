@@ -104,14 +104,18 @@ public class Renodx5AddonService
             () => AutoRedeployAsync(StagedFileName, DeployFileName, "Renodx5AddonService.AutoRedeployAsync")).ConfigureAwait(false);
     }
 
-    public async Task DeployNrDllIfAbsentAsync(string installPath)
+    public async Task DeployNrDllIfAbsentAsync(string installPath, string component = "Dlss5Tool")
     {
         if (string.IsNullOrEmpty(installPath)) return;
         var nrDllDest = Path.Combine(installPath, "nvngx_dlssnr.dll");
         var sentinel  = nrDllDest + ".original";
 
-        // Sentinel exists → already deployed by RHI, skip
-        if (File.Exists(sentinel)) return;
+        // Sentinel exists → already deployed by RHI, just register ownership
+        if (File.Exists(sentinel))
+        {
+            RhiInstallManifest.AddSharedFileOwner(installPath, "nvngx_dlssnr.dll", component);
+            return;
+        }
         // File exists without sentinel → game-original, don't touch
         if (File.Exists(nrDllDest)) return;
 
@@ -122,7 +126,8 @@ public class Renodx5AddonService
             {
                 File.Copy(cachedNr, nrDllDest, overwrite: false);
                 File.WriteAllBytes(sentinel, Array.Empty<byte>()); // 0-byte sentinel — RHI placed this
-                _crashReporter.Log($"[Renodx5AddonService.DeployNrDllIfAbsentAsync] Deployed nvngx_dlssnr.dll to '{installPath}' (sentinel written)");
+                RhiInstallManifest.AddSharedFileOwner(installPath, "nvngx_dlssnr.dll", component);
+                _crashReporter.Log($"[Renodx5AddonService.DeployNrDllIfAbsentAsync] Deployed nvngx_dlssnr.dll to '{installPath}' (sentinel written, owner={component})");
             }
         }
         catch (Exception ex)
@@ -156,10 +161,11 @@ public class Renodx5AddonService
         if (string.IsNullOrEmpty(installPath)) return;
         var deployDir = ModInstallService.GetAddonDeployPath(installPath);
         TryDelete(Path.Combine(deployDir, DeployFileName), "Renodx5AddonService.Uninstall");
-        // Use sentinel pattern to decide whether to remove nvngx_dlssnr.dll:
-        // 0-byte .original → RHI placed it, delete both
-        // non-zero .original → game-original, restore it
-        // no .original → game-original (pre-sentinel installs or game shipped it), leave alone
+
+        // Use ownership tracking — only remove nvngx_dlssnr.dll if Dlss5Tool is the last owner
+        if (!RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssnr.dll", "Dlss5Tool"))
+            return; // another component still needs it
+
         var nrDllPath = Path.Combine(installPath, "nvngx_dlssnr.dll");
         var sentinel  = nrDllPath + ".original";
         if (File.Exists(sentinel))
@@ -167,13 +173,11 @@ public class Renodx5AddonService
             var info = new FileInfo(sentinel);
             if (info.Length == 0)
             {
-                // Sentinel — RHI placed nvngx_dlssnr.dll, game had nothing → delete both
                 TryDelete(nrDllPath, "Renodx5AddonService.Uninstall (sentinel cleanup)");
                 TryDelete(sentinel,  "Renodx5AddonService.Uninstall (sentinel delete)");
             }
             else
             {
-                // Non-zero backup — game had its own copy → restore it
                 try { File.Copy(sentinel, nrDllPath, overwrite: true); File.Delete(sentinel); }
                 catch (Exception ex) { _crashReporter.Log($"[Renodx5AddonService.Uninstall] Restore failed — {ex.Message}"); }
             }
@@ -200,8 +204,9 @@ public class Renodx5AddonService
         var nrDllPath = Path.Combine(installPath, "nvngx_dlssnr.dll");
         var sentinel  = nrDllPath + ".original";
 
-        // If OptiScaler DlssNr is installed in this folder, it owns nvngx_dlssnr.dll —
-        // leave it alone regardless of which NR method is being removed.
+        // Check ownership — if any other component still owns this file, leave it alone
+        // The caller's component name isn't passed here, so we check if OptiScaler DlssNr
+        // is installed as a proxy for "another component owns it"
         var manifest = Models.RhiInstallManifest.Read(installPath);
         if (manifest != null
             && string.Equals(manifest.Variant, "DlssNr", StringComparison.OrdinalIgnoreCase))

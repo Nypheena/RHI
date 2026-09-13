@@ -1596,7 +1596,7 @@ public partial class DetailPanelBuilder
 
         // Also deploy NR dll alongside the feeder
         var rdx5Svc = App.Services.GetRequiredService<Renodx5AddonService>();
-        await rdx5Svc.DeployNrDllIfAbsentAsync(installPath).ConfigureAwait(false);
+        await rdx5Svc.DeployNrDllIfAbsentAsync(installPath, "Feeder").ConfigureAwait(false);
 
         // Deploy DLSS5 Tool as neural consumer (Feeder needs renodx-dlss5.addon64 alongside it)
         // For 32-bit games the neural consumer runs in host64\ — it must NOT be in the game folder
