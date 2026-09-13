@@ -162,15 +162,8 @@ public class RhiInstallManifest
     {
         try
         {
-            // Read existing manifest — never create a new one here, just update sharedFiles
-            // if the manifest exists. If it doesn't exist yet, this is a no-op; the component
-            // writing the manifest (InstallAsync) will preserve sharedFiles when it writes.
-            var manifest = Read(gameDir);
-            if (manifest == null)
-            {
-                CrashReporter.Log($"[RhiInstallManifest.AddSharedFileOwner] No manifest in '{gameDir}' — deferring ownership registration");
-                return;
-            }
+            // Read existing manifest, or create a minimal one to hold sharedFiles
+            var manifest = Read(gameDir) ?? new RhiInstallManifest { Component = "RHI" };
             if (!manifest.SharedFiles.TryGetValue(fileName, out var owners))
             {
                 owners = new List<string>();
