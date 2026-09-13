@@ -713,15 +713,26 @@ public partial class OptiScalerService
             }
 
             // ── 3. Delete all other deployed files ───────────────────────────
+            // When using the manifest file list (gameManifest != null), trust it — those files
+            // were recorded at install time. When falling back to staging scan, only delete
+            // files that have a .original sentinel (i.e. RHI placed them), to avoid deleting
+            // game-original files that happen to share a name with a staging file.
+            bool requireSentinelForDelete = gameManifest == null;
             foreach (var fileName in deployedFileNames)
             {
                 var filePath = Path.Combine(gameDir, fileName);
-                if (File.Exists(filePath))
+                if (!File.Exists(filePath)) continue;
+
+                // Staging-scan fallback: only delete if RHI placed it (sentinel exists)
+                if (requireSentinelForDelete && !File.Exists(filePath + ".original"))
                 {
-                    File.Delete(filePath);
-                    CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {fileName}");
-                    RestoreOriginalIfExists(filePath);
+                    CrashReporter.Log($"[OptiScalerService.Uninstall] Skipping '{fileName}' — no sentinel, not placed by RHI (staging scan fallback)");
+                    continue;
                 }
+
+                File.Delete(filePath);
+                CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {fileName}");
+                RestoreOriginalIfExists(filePath);
             }
 
             // ── 3b. Clean up deployed subdirectories ─────────────────────────
