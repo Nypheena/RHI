@@ -317,6 +317,15 @@ public class MassDlssDeployDialog
             var detection = card.DlssDetection;
             if (detection == null) { skippedNoComponent++; continue; }
 
+            // Skip games whose install folder no longer exists — avoids hangs on
+            // deleted/moved/disconnected paths
+            if (string.IsNullOrEmpty(card.InstallPath) || !Directory.Exists(card.InstallPath))
+            {
+                CrashReporter.Log($"[MassDlssDeployDialog] Skipping '{card.GameName}' — install path not found: '{card.InstallPath}'");
+                skippedNoComponent++;
+                continue;
+            }
+
             processed++;
             progressText.Text = $"[{processed}/{totalSelected}] {card.GameName}";
             await Task.Delay(1); // Yield to UI thread so text updates visually
