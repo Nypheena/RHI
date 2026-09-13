@@ -1657,22 +1657,17 @@
                                         <Grid ColumnSpacing="6">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <PasswordBox x:Name="NexusApiKeyBox" x:FieldModifier="internal"
-                                                         Grid.Column="0"
-                                                         PlaceholderText="Paste API key here..."
-                                                         FontSize="12" VerticalAlignment="Center"
-                                                         PasswordRevealMode="Peek"/>
                                             <Button x:Name="NexusConnectBtn" x:FieldModifier="internal"
-                                                    Grid.Column="1"
+                                                    Grid.Column="0"
                                                     Content="Connect"
                                                     Click="NexusConnectBtn_Click"
                                                     Background="{StaticResource AccentGreenBrush}"
                                                     Foreground="White"
                                                     BorderThickness="0"
                                                     CornerRadius="6" Padding="12,6" MinWidth="0"
-                                                    FontSize="12" VerticalAlignment="Center"/>
+                                                    FontSize="12" VerticalAlignment="Center"
+                                                    HorizontalAlignment="Left"/>
                                         </Grid>
                                         <TextBlock x:Name="NexusStatusText" x:FieldModifier="internal"
                                                    FontSize="11" TextWrapping="Wrap"
