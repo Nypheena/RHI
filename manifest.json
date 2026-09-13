@@ -1434,6 +1434,12 @@
       "downloadUrl32": "https://github.com/OopyDoopy/renodx/releases/download/snapshot/renodx-upgrade.addon32",
       "downloadUrl64": "https://github.com/OopyDoopy/renodx/releases/download/snapshot/renodx-upgrade.addon64",
       "repositoryUrl": "https://github.com/OopyDoopy/renodx"
+    },
+    "screenshot-discord-fix": {
+      "packageName": "ReShade Screenshot Discord Fix",
+      "description": "Fixes washed-out HDR screenshots in Discord. Strips the cICP colour chunk from ReShade PNG screenshots so Discord displays them correctly using the embedded ICC profile instead. No configuration needed \u2014 runs silently in the background.",
+      "releaseApiUrl": "https://api.github.com/repos/Jahbanny/reshade-screenshot-discord-fix/releases/latest",
+      "repositoryUrl": "https://github.com/Jahbanny/reshade-screenshot-discord-fix"
     }
   },
   "renodxExtraSettings": [
