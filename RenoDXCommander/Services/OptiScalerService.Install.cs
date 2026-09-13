@@ -506,6 +506,10 @@ public partial class OptiScalerService
                 // OptiPatcher lives in plugins/ — always record it
                 manifestFolders.Add("plugins");
 
+                // Preserve sharedFiles from any existing manifest — another component
+                // (e.g. ShortFuse NR) may have already registered ownership of shared DLLs
+                var existingManifest = RhiInstallManifest.Read(card.InstallPath);
+
                 RhiInstallManifest.Write(card.InstallPath, new RhiInstallManifest
                 {
                     Component   = AddonType,
@@ -515,6 +519,8 @@ public partial class OptiScalerService
                     InstalledAt = DateTime.UtcNow,
                     Files       = manifestFiles,
                     Folders     = manifestFolders,
+                    SharedFiles = existingManifest?.SharedFiles ?? new(StringComparer.OrdinalIgnoreCase),
+                    NrMethod    = existingManifest?.NrMethod,
                 });
             }
 
@@ -1277,6 +1283,7 @@ public partial class OptiScalerService
                 manifestFolders.Add("plugins");
 
                 var variantStr = isDlssNr ? "DlssNr" : isNightly ? "Nightly" : "Stable";
+                var existingForUpdate = RhiInstallManifest.Read(gameDir);
                 RhiInstallManifest.Write(gameDir, new RhiInstallManifest
                 {
                     Component   = AddonType,
@@ -1286,6 +1293,8 @@ public partial class OptiScalerService
                     InstalledAt = DateTime.UtcNow,
                     Files       = manifestFiles,
                     Folders     = manifestFolders,
+                    SharedFiles = existingForUpdate?.SharedFiles ?? new(StringComparer.OrdinalIgnoreCase),
+                    NrMethod    = existingForUpdate?.NrMethod,
                 });
             }
 
