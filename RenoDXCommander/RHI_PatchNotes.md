@@ -21,6 +21,10 @@
 - Fixed RHI database (rhi-repo) changes not reflecting in the app after a standard Refresh — required a full restart. The database ETag cache is now cleared on Refresh so any changes pushed to the repo appear immediately.
 - Fixed the detail panel not updating for the currently selected game after a Refresh — changes to game notes, mod status, or any other rebuilt card property now show without needing to reselect the game.
 - Fixed UE-Extended game notes from the RHI database not appearing in the RenoDX info dialog. Notes are now shown below the UE-Extended description for all games that have them.
+
+### Maintenance
+
+- `rhi_install.txt` now records a per-component file list for every NR method installed alongside OptiScaler (ShortFuse, DLSS5 Tool, Bridge, Feeder). This gives RHI a redundant record of exactly what was deployed by each component, independent of the sentinel `.original` files, improving reliability of cleanup when files are left behind.
 - Fixed `reshade-shaders` being renamed to `reshade-shaders-original` with a new empty folder in its place. This could happen during Refresh, especially when using Neural Rendering — concurrent shader operations would occasionally race and treat the existing folder as unmanaged.
 - Fixed `renodx-dlss5.addon64` reappearing after removing Neural Rendering. Clearing NR now properly removes DLSS5 Tool from your addon selection so it stays gone.
 - Fixed OptiScaler uninstall (Stable/Nightly) incorrectly removing `nvngx_dlssnr.dll` that was placed by the Neural Rendering section (ShortFuse or DLSS5 Tool). The dlssnr.dll cleanup now only runs when uninstalling the DlssNr OptiScaler variant, which is the only variant that deploys it.

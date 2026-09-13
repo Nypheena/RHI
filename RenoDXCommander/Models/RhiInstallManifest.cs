@@ -62,6 +62,15 @@ public class RhiInstallManifest
     public Dictionary<string, List<string>> SharedFiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Per-component file lists. Each NR component (ShortFuse, Dlss5Tool, Bridge, Feeder)
+    /// records every file it deployed here. Provides redundancy alongside sentinels —
+    /// uninstall can cross-reference this list to clean up reliably even if sentinels fail.
+    /// Key = component name; Value = list of filenames relative to the game folder.
+    /// </summary>
+    [JsonPropertyName("components")]
+    public Dictionary<string, RhiComponentRecord> Components { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// The Neural Rendering method currently installed in this game folder, if any.
     /// Kept for backwards compatibility — use SharedFiles for ownership tracking.
     /// </summary>
@@ -130,6 +139,62 @@ public class RhiInstallManifest
         catch (Exception ex)
         {
             CrashReporter.Log($"[RhiInstallManifest.Delete] Failed in '{gameDir}' — {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Records the file list for a component in <c>rhi_install.txt</c>.
+    /// Creates a minimal manifest if none exists. Updates an existing one.
+    /// </summary>
+    public static void SetComponent(string gameDir, string component, IEnumerable<string> files)
+    {
+        try
+        {
+            var manifest = Read(gameDir) ?? new RhiInstallManifest { Component = "RHI" };
+            manifest.Components[component] = new RhiComponentRecord { Files = files.ToList() };
+            Write(gameDir, manifest);
+            CrashReporter.Log($"[RhiInstallManifest.SetComponent] Recorded {manifest.Components[component].Files.Count} file(s) for {component} in {gameDir}");
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[RhiInstallManifest.SetComponent] Failed for '{component}' in '{gameDir}' — {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Returns the file list for a component, or an empty list if not recorded.
+    /// </summary>
+    public static IReadOnlyList<string> GetComponentFiles(string gameDir, string component)
+    {
+        try
+        {
+            var manifest = Read(gameDir);
+            if (manifest != null && manifest.Components.TryGetValue(component, out var rec))
+                return rec.Files.AsReadOnly();
+        }
+        catch { }
+        return Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// Removes a component's record from <c>rhi_install.txt</c>.
+    /// No-op if the manifest or component entry doesn't exist.
+    /// </summary>
+    public static void RemoveComponent(string gameDir, string component)
+    {
+        try
+        {
+            var manifest = Read(gameDir);
+            if (manifest == null) return;
+            if (manifest.Components.Remove(component))
+            {
+                Write(gameDir, manifest);
+                CrashReporter.Log($"[RhiInstallManifest.RemoveComponent] Removed {component} record from {gameDir}");
+            }
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[RhiInstallManifest.RemoveComponent] Failed for '{component}' in '{gameDir}' — {ex.Message}");
         }
     }
 
@@ -251,4 +316,19 @@ public class RhiInstallManifest
             CrashReporter.Log($"[RhiInstallManifest.UpdateInstalledAs] Failed in '{gameDir}' — {ex.Message}");
         }
     }
+}
+
+/// <summary>
+/// Record for a single NR component's install state inside <see cref="RhiInstallManifest.Components"/>.
+/// </summary>
+public class RhiComponentRecord
+{
+    /// <summary>
+    /// All files this component deployed to the game folder, relative to the install root.
+    /// Paths that live in a subdirectory are stored with a forward slash separator
+    /// (e.g. "host64/nvngx_dlssnr.dll"). Files in the reshade-shaders tree use the
+    /// conventional relative path (e.g. "reshade-shaders/Shaders/DLSS5_Feed.fx").
+    /// </summary>
+    [JsonPropertyName("files")]
+    public List<string> Files { get; set; } = [];
 }

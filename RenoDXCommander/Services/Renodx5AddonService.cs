@@ -186,6 +186,9 @@ public class Renodx5AddonService
         {
             _crashReporter.Log($"[Renodx5AddonService.Uninstall] No sentinel for nvngx_dlssnr.dll — leaving untouched");
         }
+
+        // Clear Dlss5Tool component record from rhi_install.txt
+        Models.RhiInstallManifest.RemoveComponent(installPath, "Dlss5Tool");
     }
 
     public bool IsInstalledIn(string installPath)
@@ -282,6 +285,12 @@ public class Renodx5AddonService
 
         // Co-deploy DLSS/Streamline files using sentinel .original pattern
         await DeploySfDllsAsync(installPath, detection).ConfigureAwait(false);
+
+        // Add the addon file to the ShortFuse component record (DLLs were added by DeploySfDllsAsync)
+        var existingRec = Models.RhiInstallManifest.GetComponentFiles(installPath, "ShortFuse").ToList();
+        if (!existingRec.Contains(SfDeployFileName, StringComparer.OrdinalIgnoreCase))
+            existingRec.Insert(0, SfDeployFileName);
+        Models.RhiInstallManifest.SetComponent(installPath, "ShortFuse", existingRec);
     }
 
     public void UninstallSf(string installPath, DlssDetectionResult? detection = null)
@@ -292,6 +301,9 @@ public class Renodx5AddonService
 
         // Restore co-deployed DLLs using .original sentinel pattern
         RestoreSfDlls(installPath, detection);
+
+        // Clear ShortFuse component record from rhi_install.txt
+        Models.RhiInstallManifest.RemoveComponent(installPath, "ShortFuse");
     }
 
     public bool IsSfInstalledIn(string installPath)
@@ -321,6 +333,7 @@ public class Renodx5AddonService
         var cachedSlDir = await _dlssStreamlineService.EnsureNewestStreamlineCachedAsync().ConfigureAwait(false);
 
         var sources = new[] { cachedSr, cachedRr, cachedFg, cachedNr };
+        var deployedFiles = new List<string>();
 
         for (int i = 0; i < dllMappings.Length; i++)
         {
@@ -332,6 +345,7 @@ public class Renodx5AddonService
             SentinelDeploy(src, dest, $"[Renodx5AddonService.DeploySfDlls] {dllName}");
             // Register ShortFuse as owner of this shared DLSS file
             RhiInstallManifest.AddSharedFileOwner(installPath, dllName, "ShortFuse");
+            deployedFiles.Add(dllName);
         }
 
         // Streamline — deploy DLLs to detected folder or install root
@@ -347,8 +361,13 @@ public class Renodx5AddonService
                 if (!File.Exists(srcPath)) continue;
                 var destPath = Path.Combine(slDest, slDll);
                 SentinelDeploy(srcPath, destPath, $"[Renodx5AddonService.DeploySfDlls] {slDll}");
+                deployedFiles.Add(slDll);
             }
         }
+
+        // Record what ShortFuse deployed in rhi_install.txt for redundant cleanup tracking
+        // The addon file itself (renodx-dlss.addon64) is added by the caller (InstallSfAsync/InstallShortFuseAsync)
+        Models.RhiInstallManifest.SetComponent(installPath, "ShortFuse", deployedFiles);
     }
 
     private void RestoreSfDlls(string installPath, DlssDetectionResult? detection)

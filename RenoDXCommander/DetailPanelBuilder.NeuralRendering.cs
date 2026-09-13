@@ -787,6 +787,7 @@ public partial class DetailPanelBuilder
                                     App.Services.GetRequiredService<DgVoodooService>().RemoveFromGame(installPath);
                                 else
                                     CrashReporter.Log($"[NeuralRendering] Luma still installed — preserving dgVoodoo2 for '{gameName}'");
+                                Models.RhiInstallManifest.RemoveComponent(installPath, "Feeder");
                                 break;
                             }
                         }
@@ -844,6 +845,13 @@ public partial class DetailPanelBuilder
                     case NrMethodDlss5ToolBridge:
                         await InstallDlss5ToolAsync(card, installBtn, addonVersionCombo, nrVersionCombo, rdx5Svc, dlssSvc, addonSvc);
                         await InstallBridgeAddonAsync(card, installBtn, addonSvc);
+                        // Append bridge file to the Dlss5Tool component record
+                        {
+                            var bFiles = Models.RhiInstallManifest.GetComponentFiles(installPath, "Dlss5Tool").ToList();
+                            if (!bFiles.Contains(BridgeDeployFile, StringComparer.OrdinalIgnoreCase))
+                                bFiles.Add(BridgeDeployFile);
+                            Models.RhiInstallManifest.SetComponent(installPath, "Dlss5Tool", bFiles);
+                        }
                         break;
 
                     case NrMethodShortFuse:
@@ -992,6 +1000,8 @@ public partial class DetailPanelBuilder
                                 App.Services.GetRequiredService<DgVoodooService>().RemoveFromGame(installPath);
                             else
                                 CrashReporter.Log($"[NeuralRendering] Luma still installed — preserving dgVoodoo2 for '{gameName}'");
+
+                            Models.RhiInstallManifest.RemoveComponent(installPath, "Feeder");
                             break;
                         }
                     }
@@ -1198,6 +1208,12 @@ public partial class DetailPanelBuilder
         // Upgrade all DLSS DLLs to latest (SR/RR/FG + NR)
         _window.DispatcherQueue?.TryEnqueue(() => statusBtn.Content = "Upgrading DLSS DLLs...");
         await UpgradeDlssDllsAsync(card, dlssSvc, nrVersionCombo).ConfigureAwait(false);
+
+        // Append the addon file to the Dlss5Tool component record (DLLs recorded in UpgradeDlssDllsAsync)
+        var d5Files = Models.RhiInstallManifest.GetComponentFiles(installPath, "Dlss5Tool").ToList();
+        if (!d5Files.Contains("renodx-dlss5.addon64", StringComparer.OrdinalIgnoreCase))
+            d5Files.Insert(0, "renodx-dlss5.addon64");
+        Models.RhiInstallManifest.SetComponent(installPath, "Dlss5Tool", d5Files);
     }
 
     /// <summary>
@@ -1265,6 +1281,15 @@ public partial class DetailPanelBuilder
                 RhiInstallManifest.AddSharedFileOwner(installPath, "nvngx_dlssnr.dll", "Dlss5Tool");
             }
         }).ConfigureAwait(false);
+
+        // Record DLSS5 Tool's deployed DLSS DLLs in rhi_install.txt
+        // The addon file (renodx-dlss5.addon64) is added by InstallDlss5ToolAsync after this returns.
+        var dlss5Files = new List<string>();
+        if (cachedSr  != null) dlss5Files.Add("nvngx_dlss.dll");
+        if (cachedRr  != null) dlss5Files.Add("nvngx_dlssd.dll");
+        if (cachedFg  != null) dlss5Files.Add("nvngx_dlssg.dll");
+        if (cachedNr  != null) dlss5Files.Add("nvngx_dlssnr.dll");
+        Models.RhiInstallManifest.SetComponent(installPath, "Dlss5Tool", dlss5Files);
     }
 
     /// <summary>Deploys src → dest with sentinel backup. If dest exists, backs up the original. If dest doesn't exist, writes a 0-byte sentinel so uninstall knows to delete it entirely.</summary>
@@ -1941,6 +1966,32 @@ public partial class DetailPanelBuilder
                     }
                 }).ConfigureAwait(false);
             }
+        }
+
+        // Record Feeder's deployed files in rhi_install.txt
+        {
+            var feederFiles = new List<string> { card.Is32Bit ? FeederDeployFile32 : FeederDeployFile64 };
+            feederFiles.Add("nvngx_dlssnr.dll");
+            feederFiles.Add("renodx-dlss5.addon64");
+            feederFiles.Add("nvngx_dlss.dll");
+            feederFiles.Add(@"reshade-shaders\Shaders\lumenite_Kernel.fx");
+            feederFiles.Add(@"reshade-shaders\Shaders\DLSS5_Feed.fx");
+            feederFiles.Add("ReShadePreset.ini");
+            if (card.Is32Bit)
+            {
+                feederFiles.Add(@"host64\dlss5-feed-host64.exe");
+                feederFiles.Add(@"host64\dxgi.dll");
+                feederFiles.Add(@"host64\renodx-dlss5.addon64");
+                feederFiles.Add(@"host64\nvngx_dlssnr.dll");
+                feederFiles.Add(@"host64\nvngx_dlss.dll");
+            }
+            bool feederIsDx9 = card.DetectedApis.Contains(Models.GraphicsApiType.DirectX9);
+            if (feederIsDx9)
+            {
+                feederFiles.Add("D3D9.dll");
+                feederFiles.Add("dgVoodoo.conf");
+            }
+            Models.RhiInstallManifest.SetComponent(installPath, "Feeder", feederFiles);
         }
 
         // Rebuild panel one final time now that shaders are deployed — status will show ✓ Feed.fx / ✓ LumeniteFX
