@@ -83,15 +83,16 @@ public class GitHubETagCache
                 var remaining = response.Headers.TryGetValues("X-RateLimit-Remaining", out var vals)
                     ? vals.FirstOrDefault() : null;
                 bool actuallyRateLimited = remaining == "0";
+                var hasAuthHeader = request.Headers.Contains("Authorization");
 
                 if (actuallyRateLimited && !_rateLimited)
                 {
                     _rateLimited = true;
-                    CrashReporter.Log("[GitHubETagCache] GitHub API rate limited (X-RateLimit-Remaining=0) — all further API calls will be skipped this session");
+                    CrashReporter.Log($"[GitHubETagCache] GitHub API rate limited (X-RateLimit-Remaining=0) for {TruncateUrl(url)} — authenticated={hasAuthHeader}");
                 }
                 else if (!actuallyRateLimited)
                 {
-                    CrashReporter.Log($"[GitHubETagCache] 403 Forbidden for {TruncateUrl(url)} (not rate limited, remaining={remaining ?? "unknown"}) — skipping this URL only");
+                    CrashReporter.Log($"[GitHubETagCache] 403 Forbidden for {TruncateUrl(url)} (not rate limited, remaining={remaining ?? "unknown"}, authenticated={hasAuthHeader}) — skipping this URL only");
                 }
             }
 
