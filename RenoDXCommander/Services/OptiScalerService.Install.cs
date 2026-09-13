@@ -701,7 +701,9 @@ public partial class OptiScalerService
             // ── 2e. DlssNr variant only: delete nvngx_dlssnr.dll + forwarder, restore originals ──
             // Only run for DlssNr variant — for Stable/Nightly, nvngx_dlssnr.dll was not
             // deployed by OptiScaler and may belong to the NR section (ShortFuse/DLSS5 Tool).
-            if (installedVariant.Equals("DlssNr", StringComparison.OrdinalIgnoreCase))
+            // Also skip if NR section currently owns the file (nrMethod set in manifest).
+            if (installedVariant.Equals("DlssNr", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrEmpty(gameManifest?.NrMethod))
             {
                 var gameNrPath = Path.Combine(gameDir, "nvngx_dlssnr.dll");
                 if (File.Exists(gameNrPath) || File.Exists(gameNrPath + ".original"))
@@ -711,6 +713,11 @@ public partial class OptiScalerService
                     RestoreOriginalIfExists(gameNrPath);
                 }
             }
+            else if (installedVariant.Equals("DlssNr", StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrEmpty(gameManifest?.NrMethod))
+            {
+                CrashReporter.Log($"[OptiScalerService.Uninstall] Skipping nvngx_dlssnr.dll — NR section owns it (nrMethod={gameManifest!.NrMethod})");
+            }
 
             // ── 3. Delete all other deployed files ───────────────────────────
             // When using the manifest file list (gameManifest != null), trust it — those files
@@ -718,8 +725,20 @@ public partial class OptiScalerService
             // files that have a .original sentinel (i.e. RHI placed them), to avoid deleting
             // game-original files that happen to share a name with a staging file.
             bool requireSentinelForDelete = gameManifest == null;
+            // If NR section owns nvngx_dlssnr.dll (nrMethod is set), skip it here — step 2e
+            // already handles the DlssNr case, and non-DlssNr variants must never touch it.
+            bool nrOwnesDlssNr = !string.IsNullOrEmpty(gameManifest?.NrMethod);
             foreach (var fileName in deployedFileNames)
             {
+                // Never delete nvngx_dlssnr.dll from the generic loop — it's handled explicitly
+                // in step 2e (DlssNr only) or must be left alone if NR section owns it.
+                if (fileName.Equals("nvngx_dlssnr.dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (nrOwnesDlssNr)
+                        CrashReporter.Log($"[OptiScalerService.Uninstall] Skipping nvngx_dlssnr.dll — owned by NR section (nrMethod={gameManifest!.NrMethod})");
+                    continue;
+                }
+
                 var filePath = Path.Combine(gameDir, fileName);
                 if (!File.Exists(filePath)) continue;
 
