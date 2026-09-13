@@ -75,13 +75,23 @@ public class GitHubETagCache
 
         if (!response.IsSuccessStatusCode)
         {
-            // Detect rate limiting (403 Forbidden) and set session-wide flag
+            // Detect rate limiting: only set session-wide flag when GitHub explicitly reports
+            // remaining=0, not on every 403. A transient 403 (auth scope, IP block, etc.)
+            // should not kill all API calls for the rest of the session.
             if (response.StatusCode == HttpStatusCode.Forbidden)
             {
-                if (!_rateLimited)
+                var remaining = response.Headers.TryGetValues("X-RateLimit-Remaining", out var vals)
+                    ? vals.FirstOrDefault() : null;
+                bool actuallyRateLimited = remaining == "0";
+
+                if (actuallyRateLimited && !_rateLimited)
                 {
                     _rateLimited = true;
-                    CrashReporter.Log("[GitHubETagCache] GitHub API rate limited (403 Forbidden) — all further API calls will be skipped this session");
+                    CrashReporter.Log("[GitHubETagCache] GitHub API rate limited (X-RateLimit-Remaining=0) — all further API calls will be skipped this session");
+                }
+                else if (!actuallyRateLimited)
+                {
+                    CrashReporter.Log($"[GitHubETagCache] 403 Forbidden for {TruncateUrl(url)} (not rate limited, remaining={remaining ?? "unknown"}) — skipping this URL only");
                 }
             }
 
