@@ -777,7 +777,7 @@ public partial class DetailPanelBuilder
                                     if (info.Length == 0) { try { File.Delete(dlssDest); File.Delete(dlssSentinel); } catch { } }
                                     else { try { File.Copy(dlssSentinel, dlssDest, overwrite: true); File.Delete(dlssSentinel); } catch { } }
                                 }
-                                rdx5Svc.RemoveNrDll(installPath);
+                                rdx5Svc.RemoveNrDll(installPath, "Feeder");
                                 RemoveFeederShaders(installPath, gameName, store, card);
                                 // Remove host64\ and dgVoodoo2 on method switch too
                                 var h64 = Path.Combine(installPath, "host64");
@@ -973,7 +973,7 @@ public partial class DetailPanelBuilder
                             }
 
                             // Remove NR dll
-                            rdx5Svc.RemoveNrDll(installPath);
+                            rdx5Svc.RemoveNrDll(installPath, "Feeder");
 
                             // Remove only DLSS5Feeder + LumeniteFX shader files — never wipe the whole folder
                             RemoveFeederShaders(installPath, gameName, store, card);
@@ -1241,24 +1241,28 @@ public partial class DetailPanelBuilder
             {
                 var dest = detection?.DlssPath ?? Path.Combine(installPath, "nvngx_dlss.dll");
                 DeployWithSentinel(cachedSr, dest, "NeuralRendering.UpgradeSR");
+                RhiInstallManifest.AddSharedFileOwner(installPath, "nvngx_dlss.dll", "Dlss5Tool");
             }
             // RR
             if (cachedRr != null)
             {
                 var dest = detection?.DlssdPath ?? Path.Combine(installPath, "nvngx_dlssd.dll");
                 DeployWithSentinel(cachedRr, dest, "NeuralRendering.UpgradeRR");
+                RhiInstallManifest.AddSharedFileOwner(installPath, "nvngx_dlssd.dll", "Dlss5Tool");
             }
             // FG
             if (cachedFg != null)
             {
                 var dest = detection?.DlssgPath ?? Path.Combine(installPath, "nvngx_dlssg.dll");
                 DeployWithSentinel(cachedFg, dest, "NeuralRendering.UpgradeFG");
+                RhiInstallManifest.AddSharedFileOwner(installPath, "nvngx_dlssg.dll", "Dlss5Tool");
             }
             // NR
             if (cachedNr != null)
             {
                 var dest = detection?.DlssnrPath ?? Path.Combine(installPath, "nvngx_dlssnr.dll");
                 DeployNrDllSentinel(installPath, cachedNr); // uses the sentinel helper
+                RhiInstallManifest.AddSharedFileOwner(installPath, "nvngx_dlssnr.dll", "Dlss5Tool");
             }
         }).ConfigureAwait(false);
     }
@@ -1319,10 +1323,15 @@ public partial class DetailPanelBuilder
     {
         var installPath = card.InstallPath!;
         var det = card.DlssDetection;
-        RestoreWithSentinel(det?.DlssPath   ?? Path.Combine(installPath, "nvngx_dlss.dll"),   "NeuralRendering.RestoreSR");
-        RestoreWithSentinel(det?.DlssdPath  ?? Path.Combine(installPath, "nvngx_dlssd.dll"),  "NeuralRendering.RestoreRR");
-        RestoreWithSentinel(det?.DlssgPath  ?? Path.Combine(installPath, "nvngx_dlssg.dll"),  "NeuralRendering.RestoreFG");
-        RestoreWithSentinel(det?.DlssnrPath ?? Path.Combine(installPath, "nvngx_dlssnr.dll"), "NeuralRendering.RestoreNR");
+        // Only restore each file if Dlss5Tool is the last owner
+        if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlss.dll",   "Dlss5Tool"))
+            RestoreWithSentinel(det?.DlssPath   ?? Path.Combine(installPath, "nvngx_dlss.dll"),   "NeuralRendering.RestoreSR");
+        if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssd.dll",  "Dlss5Tool"))
+            RestoreWithSentinel(det?.DlssdPath  ?? Path.Combine(installPath, "nvngx_dlssd.dll"),  "NeuralRendering.RestoreRR");
+        if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssg.dll",  "Dlss5Tool"))
+            RestoreWithSentinel(det?.DlssgPath  ?? Path.Combine(installPath, "nvngx_dlssg.dll"),  "NeuralRendering.RestoreFG");
+        if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssnr.dll", "Dlss5Tool"))
+            RestoreWithSentinel(det?.DlssnrPath ?? Path.Combine(installPath, "nvngx_dlssnr.dll"), "NeuralRendering.RestoreNR");
     }
 
     private async Task InstallBridgeAddonAsync(

@@ -198,20 +198,16 @@ public class Renodx5AddonService
     /// Removes nvngx_dlssnr.dll from the game folder using the sentinel pattern.
     /// Called when DLSS5 Tool addon is removed (e.g. switching back to Global addons).
     /// </summary>
-    public void RemoveNrDll(string installPath)
+    public void RemoveNrDll(string installPath, string component = "Dlss5Tool")
     {
         if (string.IsNullOrEmpty(installPath)) return;
         var nrDllPath = Path.Combine(installPath, "nvngx_dlssnr.dll");
         var sentinel  = nrDllPath + ".original";
 
-        // Check ownership — if any other component still owns this file, leave it alone
-        // The caller's component name isn't passed here, so we check if OptiScaler DlssNr
-        // is installed as a proxy for "another component owns it"
-        var manifest = Models.RhiInstallManifest.Read(installPath);
-        if (manifest != null
-            && string.Equals(manifest.Variant, "DlssNr", StringComparison.OrdinalIgnoreCase))
+        // Check ownership — only remove if this component is the last owner
+        if (!RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssnr.dll", component))
         {
-            _crashReporter.Log($"[Renodx5AddonService.RemoveNrDll] Skipping — OptiScaler DlssNr owns nvngx_dlssnr.dll in '{installPath}'");
+            _crashReporter.Log($"[Renodx5AddonService.RemoveNrDll] Skipping nvngx_dlssnr.dll — still owned by other components");
             return;
         }
 
