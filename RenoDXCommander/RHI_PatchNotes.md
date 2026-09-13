@@ -2,42 +2,35 @@
 
 ### New
 
-- **Export Game Data** — new button in Settings next to Copy Logs. Gathers your game library data (graphics API, exe paths, engine, store IDs) and copies a JSON file to clipboard. Paste into Discord to share with the community — submissions get merged into a community database that will help RHI detect APIs and paths correctly for more games over time.
+- **Export Game Data** — new button in Settings next to Copy Logs. Gathers your game library data (graphics API, exe paths, engine, store IDs) and copies a zip to clipboard. Paste into Discord to share with the community — submissions help RHI detect APIs and install paths correctly for more games.
+- **GitHub API token support** — if you're hitting rate limits (OptiScaler NR staging not available, version checks not completing), create `%LocalAppData%\RHI\github_api.txt` and paste a GitHub personal access token on a single line. No scopes needed — a free token for public repos takes about 30 seconds to generate at github.com/settings/tokens. Raises the limit from 60 to 5000 API calls per hour.
 
 ### Changes
 
-- **GitHub API token support** — if you're hitting GitHub API rate limits (things not updating, "staging not available" errors), create `%LocalAppData%\RHI\github_api.txt` and paste a GitHub personal access token on a single line. No scopes needed — a token for public repos only is sufficient and takes about 30 seconds to generate at github.com/settings/tokens. Raises the rate limit from 60 to 5000 requests/hour.
-- **PCGW API detection** — RHI now quietly scrapes PCGamingWiki in the background to verify DirectX versions. Games that PE scanning can't read (Xbox/Game Pass titles, access-denied paths) now show the correct DX11/DX12 badge where PCGW has the data. Halo Infinite, Resonance, and similar Xbox titles that previously showed no API now correctly show DX12.
-- **Neural Rendering: Feeder and Bridge now support addon version pinning** — the Addon Version dropdown is now active for all four NR methods. For Feeder, the combo controls which version of `renodx-dlss5.addon64` is deployed as the neural consumer — the Feeder addon itself (`dlss5-feed.addon64`) always uses the latest version. For Bridge, the combo already controlled the DLSS5 Tool version.
-- **OptiScaler cog Upscaler API defaults to the game's detected API** — opening the cog on a DX12 game now shows DX12 selected instead of always defaulting to DX11.
+- **PCGamingWiki API detection** — RHI now uses PCGamingWiki in the background to verify DirectX versions for games it can't scan directly (Xbox/Game Pass titles, access-denied paths). Halo Infinite, Resonance, and similar titles that previously showed no API badge now correctly show DX12.
+- **Neural Rendering: Feeder and Bridge now support addon version pinning** — the Addon Version dropdown is now active for all four NR methods.
+- **OptiScaler cog Upscaler API defaults to the game's detected API** — opens on DX12 for DX12 games instead of always defaulting to DX11.
+- **More reliable OptiScaler install records** — RHI now writes a `rhi_install.txt` file to the game folder on every OptiScaler install, recording the exact version, variant, and file list that was deployed. This is used on the next launch to show the correct version (fixes nightly builds reverting to stable version numbers on restart), and on uninstall to know exactly which files to clean up regardless of whether the staging folder has since been updated.
 
 ### Bug Fixes
 
-- Fixed OptiScaler showing the wrong installed version after a restart. RHI now writes a `rhi_install.txt` file to the game folder at install/update time that records the exact version deployed. On the next launch that file is read directly, so a nightly build (e.g. `20260813`) no longer reverts to showing the current stable version number after a restart.
-- Fixed OptiScaler uninstall sometimes leaving files behind when the staging folder had been updated to a newer version between the install and the uninstall. Uninstall now uses the game-folder manifest to know exactly which files were deployed, rather than scanning the (potentially different) staging folder.
-- Fixed OptiScaler uninstall failing to find the correct DLL filename when `aux_installed.json` was stale — the manifest is now the primary source, with the record as fallback.
-- Fixed OptiScaler DLL naming override not updating `rhi_install.txt` or renaming the `.original` sentinel when the DLL is renamed — uninstall would subsequently look for the wrong filename and leave files behind.
-- Fixed stale `.original` sentinel files left in game folders from previous DLL rename bugs — cleaned up automatically on next launch.
-- Fixed RHI database (rhi-repo) changes not reflecting in the app after a standard Refresh — required a full restart. The database ETag cache is now cleared on Refresh so any changes pushed to the repo appear immediately.
-- Fixed the detail panel not updating for the currently selected game after a Refresh — changes to game notes, mod status, or any other rebuilt card property now show without needing to reselect the game.
-- Fixed UE-Extended game notes from the RHI database not appearing in the RenoDX info dialog. Notes are now shown below the UE-Extended description for all games that have them.
-
-### Maintenance
-
-- `rhi_install.txt` now records a per-component file list for every NR method installed alongside OptiScaler (ShortFuse, DLSS5 Tool, Bridge, Feeder). This gives RHI a redundant record of exactly what was deployed by each component, independent of the sentinel `.original` files, improving reliability of cleanup when files are left behind.
-- Fixed `reshade-shaders` being renamed to `reshade-shaders-original` with a new empty folder in its place. This could happen during Refresh, especially when using Neural Rendering — concurrent shader operations would occasionally race and treat the existing folder as unmanaged.
-- Fixed `renodx-dlss5.addon64` reappearing after removing Neural Rendering. Clearing NR now properly removes DLSS5 Tool from your addon selection so it stays gone.
-- Fixed OptiScaler uninstall (Stable/Nightly) incorrectly removing `nvngx_dlssnr.dll` that was placed by the Neural Rendering section (ShortFuse or DLSS5 Tool). The dlssnr.dll cleanup now only runs when uninstalling the DlssNr OptiScaler variant, which is the only variant that deploys it.
-- Fixed batch DLSS/Streamline deploy getting stuck when a game has been removed from RHI or its install folder no longer exists — those games are now skipped.
-- Fixed DLSS5 DX11 Bridge and MFG Ada Unlock re-downloading on every launch even when already up to date.
-- Fixed MFG Ada Unlock being reinstalled on every Refresh after removing it via the Extras section. When installed via Extras, the addon picker toggle shows as greyed/blocked — meaning the user couldn't deselect it there. Removing via Extras now also clears it from the addon selection so it stays gone.
+- Fixed OptiScaler uninstall leaving DLSS files behind when a NR method (DLSS5 Tool, ShortFuse, Feeder) was also installed — RHI now tracks which component owns each shared file and only removes a file when the last component that deployed it is uninstalled.
+- Fixed `nvngx_dlss*.dll` files left in the game root (e.g. Mortal Shell II) after uninstalling DLSS5 Tool, when the game's actual DLSS lived in a plugin subfolder.
+- Fixed OptiScaler DLL naming override not correctly tracking the renamed DLL, causing uninstall to leave files behind.
+- Fixed MFG Ada Unlock being reinstalled on every Refresh after removing it via the Extras section.
+- Fixed batch DLSS/Streamline deploy getting stuck when a game's install folder no longer exists.
+- Fixed DLSS5 DX11 Bridge and MFG Ada Unlock re-downloading on every launch.
+- Fixed shader pack folder occasionally being renamed to `reshade-shaders-original` during Refresh.
+- Fixed `renodx-dlss5.addon64` reappearing in the addon picker after removing Neural Rendering.
+- Fixed RHI database (rhi-repo) changes not picking up after a standard Refresh — previously required a full restart.
+- Fixed the detail panel not refreshing for the currently selected game after a Refresh.
+- Fixed UE-Extended game notes from the rhi-repo database not appearing in the RenoDX info dialog.
 
 ### Manifest Updates
 
-- Fixed Engine.ini being written to the wrong AppData folder for **Solasta 2** — the game's exe lives under a `Brimstone` subfolder which RHI was using as the project name. Now correctly targets `AppData\Local\Solasta 2\Saved\Config\Windows`.
-- Added **ReShade Screenshot Discord Fix** to the addon picker — strips the cICP colour chunk from HDR PNG screenshots so Discord previews them correctly instead of showing washed-out colours.
-- Kingdom Come: Deliverance II added to 64-bit override list (PE scan was returning 32-bit incorrectly)
-- Re-enabled PCGamingWiki AppID lookup (`appid.php`) which was disabled in August 2026 due to a server migration outage. It is now confirmed working again. Existing URL cache will be cleared on next launch to allow fresh lookups via the faster AppID method.
+- Fixed Engine.ini being written to the wrong AppData folder for **Solasta 2** (was using the `Brimstone` exe subfolder name instead of the game name).
+- Added **ReShade Screenshot Discord Fix** to the addon picker — strips the cICP colour chunk from HDR screenshots so Discord previews them correctly instead of showing washed-out colours.
+- Kingdom Come: Deliverance II added to the 64-bit override list.
 
 ---
 
