@@ -2069,12 +2069,20 @@ public sealed partial class MainWindow
             return line.Split('=', 2)[1].Trim().ToLowerInvariant();
         }
 
-        var apiCombo = new ComboBox { ItemsSource = new[] { "DX11", "DX12", "Vulkan" }, SelectedItem = "DX11", FontSize = 12, HorizontalAlignment = HorizontalAlignment.Stretch };
+        // Default the API combo to the game's detected graphics API
+        var apiDefault = card.GraphicsApi switch
+        {
+            Models.GraphicsApiType.DirectX12 => "DX12",
+            Models.GraphicsApiType.Vulkan    => "Vulkan",
+            _                                => "DX11",
+        };
+
+        var apiCombo = new ComboBox { ItemsSource = new[] { "DX11", "DX12", "Vulkan" }, SelectedItem = apiDefault, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Stretch };
         var apiUpscalerCombo = new ComboBox { FontSize = 12, HorizontalAlignment = HorizontalAlignment.Stretch };
         ToolTipService.SetToolTip(apiCombo, "Select which graphics API's upscaler to configure.");
         ToolTipService.SetToolTip(apiUpscalerCombo, "Upscaler for the selected API. 'Auto' lets OptiScaler choose based on your GPU.");
 
-        // Populate upscaler combo for initial API (DX11) and select current INI value
+        // Populate upscaler combo for initial API and select current INI value
         void RefreshUpscalerCombo(string api)
         {
             bool upscalerComboInitializing = true;
@@ -2084,7 +2092,7 @@ public sealed partial class MainWindow
             upscalerComboInitializing = false;
             _ = upscalerComboInitializing; // suppress unused warning
         }
-        RefreshUpscalerCombo("DX11");
+        RefreshUpscalerCombo(apiDefault);
 
         bool apiComboInitializing = true;
         AddRow(unifiedGrid, 1, "Upscaler API", apiCombo, "Upscaler", apiUpscalerCombo);
