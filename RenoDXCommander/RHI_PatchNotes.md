@@ -25,7 +25,7 @@
 - Fixed RHI database (rhi-repo) changes not picking up after a standard Refresh — previously required a full restart.
 - Fixed the detail panel not refreshing for the currently selected game after a Refresh.
 - Fixed UE-Extended game notes from the rhi-repo database not appearing in the RenoDX info dialog.
-- Fixed pressing Backspace in the ReShade screenshot hotkey box being recorded as a hotkey — Backspace now clears the shortcut instead (matching ReShade's own behaviour). Thanks to Zach (@tzachbon) for the contribution.
+- Fixed pressing Backspace in the ReShade screenshot hotkey box being recorded as a hotkey — Backspace now clears the shortcut instead (matching ReShade's own behaviour).
 
 ### Manifest Updates
 
