@@ -793,6 +793,18 @@ public partial class MainViewModel
                     if (!string.IsNullOrEmpty(installPath))
                         CacheGameApi(installPath, newCard.GraphicsApi, newCard.DetectedApis);
                 }
+
+                // Apply scraped config file path to EngineIniProjectOverride for UE games —
+                // only when manifest hasn't already set one. Allows correct Engine.ini placement
+                // even when the user installs UE-Extended before the game's first launch.
+                if (newCard.EngineIniProjectOverride == null
+                    && pcgwInfo?.ConfigPath != null
+                    && (engine == EngineType.Unreal
+                        || newCard.EngineHint?.Contains("Unreal", StringComparison.OrdinalIgnoreCase) == true))
+                {
+                    newCard.EngineIniProjectOverride = pcgwInfo.ConfigPath;
+                    _crashReporter.Log($"[BuildCards] '{game.Name}': EngineIniProjectOverride from PCGW = '{pcgwInfo.ConfigPath}'");
+                }
             }
 
             // For Vulkan games, RS is installed when reshade.ini exists in the game folder.

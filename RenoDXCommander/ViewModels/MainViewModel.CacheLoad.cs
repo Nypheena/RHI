@@ -734,6 +734,13 @@ public partial class MainViewModel
             if (newCard.EngineHint == "Unreal Engine" && _gameNameService.EngineVersionOverrides.TryGetValue(game.Name, out var evOverride2))
                 newCard.EngineHint = evOverride2;
 
+            // Engine.ini path manifest override — fixes UE-Extended deployment to wrong folder
+            // during Phase 1 (cache display) for games that have an engineIniPathOverrides entry.
+            if (cachedManifest?.EngineIniPathOverrides != null
+                && cachedManifest.EngineIniPathOverrides.TryGetValue(game.Name, out var eiOverrideCache)
+                && !string.IsNullOrEmpty(eiOverrideCache))
+                newCard.EngineIniProjectOverride = eiOverrideCache;
+
             // DOF Fix detection (lightweight — single File.Exists check)
             newCard.IsDofFixEligible = _dofFixService.IsGameEligible(newCard.EngineHint, newCard.Is32Bit, game.Name);
             if (newCard.IsDofFixEligible && !string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
@@ -828,6 +835,16 @@ public partial class MainViewModel
                         || (newCard.EngineHint?.Contains("Unreal", StringComparison.OrdinalIgnoreCase) == true);
                     if (!isUnreal)
                         newCard.DetectedApis.Remove(GraphicsApiType.DirectX11);
+                }
+
+                // Apply scraped config file path to EngineIniProjectOverride for UE games —
+                // only when manifest hasn't already set one (same logic as BuildCards).
+                if (newCard.EngineIniProjectOverride == null
+                    && pcgwInfo?.ConfigPath != null
+                    && (engine == EngineType.Unreal
+                        || newCard.EngineHint?.Contains("Unreal", StringComparison.OrdinalIgnoreCase) == true))
+                {
+                    newCard.EngineIniProjectOverride = pcgwInfo.ConfigPath;
                 }
             }
 

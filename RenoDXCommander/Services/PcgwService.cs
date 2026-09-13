@@ -396,8 +396,8 @@ public class PcgwService : IPcgwService
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "pcgw_api_cache.json");
 
-    /// <summary>Bump when ParseApiSection logic changes to force a full rescrape.</summary>
-    private const int ApiCacheVersion = 4;
+    /// <summary>Bump when ParseApiSection or ParseConfigFilesSection logic changes to force a full rescrape.</summary>
+    private const int ApiCacheVersion = 5;
     private static readonly string ApiCacheVersionPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "pcgw_api_cache_v.txt");
@@ -482,13 +482,24 @@ public class PcgwService : IPcgwService
             var html = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
             var info = ParseApiSection(html);
 
+            // Always attempt config path parsing — even when API section wasn't found
+            // (some games have config paths but no DX12 entry we track)
+            var configPath = ParseConfigFilesSection(html);
+            if (configPath != null)
+            {
+                // Merge into info (create a minimal info object if API parse returned null)
+                info ??= new PcgwApiInfo();
+                info.ConfigPath = configPath;
+            }
+
             if (info != null)
             {
                 _apiInfoCache[normalized] = info;
                 SaveApiCacheToDisk();
                 CrashReporter.Log($"[PcgwService.FetchApiInfoAsync] '{gameName}': " +
                     $"DX9={info.HasDirectX9} DX10={info.HasDirectX10} DX11={info.HasDirectX11} " +
-                    $"DX12={info.HasDirectX12} Vulkan={info.HasVulkan} OGL={info.HasOpenGL}");
+                    $"DX12={info.HasDirectX12} Vulkan={info.HasVulkan} OGL={info.HasOpenGL}" +
+                    (info.ConfigPath != null ? $" ConfigPath='{info.ConfigPath}'" : ""));
             }
             else
             {
@@ -608,6 +619,138 @@ public class PcgwService : IPcgwService
         if (System.Text.RegularExpressions.Regex.IsMatch(n, @"\bonly\b.*\blinux\b")) return true;
         if (n.Contains("linux default") || n.Contains("linux only")) return true;
         return false;
+    }
+
+    /// <summary>
+    /// Parses the "Game data → Configuration file(s) location" section from a PCGW page.
+    /// Returns the Windows config path (normalised to backslashes) or null if not found.
+    /// Only returns paths containing %LOCALAPPDATA% or %USERPROFILE% — skips Mac/Linux/Steam paths.
+    /// </summary>
+    private static string? ParseConfigFilesSection(string html)
+    {
+        try
+        {
+            var doc = new HtmlAgilityPack.HtmlDocument();
+            doc.LoadHtml(html);
+
+            // PCGW renders config location in a table with id="table-gamedata-config"
+            // Each row: <tr><th scope="row">System</th><td>Location</td></tr>
+            // We want the Windows row.
+            var configTable = doc.DocumentNode.SelectSingleNode("//table[@id='table-gamedata-config']");
+
+            if (configTable == null)
+            {
+                // Fallback: find any table near the "Configuration file(s)" heading
+                // by scanning h2/h3 headings and taking the next table
+                var headings = doc.DocumentNode.SelectNodes("//h2|//h3|//h4|//span[@class='mw-headline']");
+                if (headings != null)
+                {
+                    foreach (var heading in headings)
+                    {
+                        if (!heading.InnerText.Contains("Configuration file", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        // Walk siblings forward to find the next table
+                        var sibling = heading.ParentNode?.NextSibling;
+                        while (sibling != null)
+                        {
+                            if (sibling.Name.Equals("table", StringComparison.OrdinalIgnoreCase))
+                            { configTable = sibling; break; }
+                            // Stop if we hit another heading section
+                            if ((sibling.Name is "h2" or "h3" or "h4") ||
+                                sibling.SelectSingleNode("./span[@class='mw-headline']") != null)
+                                break;
+                            sibling = sibling.NextSibling;
+                        }
+                        if (configTable != null) break;
+                    }
+                }
+            }
+
+            if (configTable != null)
+            {
+                var rows = configTable.SelectNodes(".//tr");
+                if (rows != null)
+                {
+                    foreach (var row in rows)
+                    {
+                        var th = row.SelectSingleNode("th[@scope='row']");
+                        var td = row.SelectSingleNode("td");
+                        if (th == null || td == null) continue;
+
+                        var system = HtmlAgilityPack.HtmlEntity.DeEntitize(th.InnerText).Trim();
+
+                        // Only the Windows row — skip Steam Play, macOS, Linux, Xbox etc.
+                        if (!system.Equals("Windows", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        var rawPath = HtmlAgilityPack.HtmlEntity.DeEntitize(td.InnerText).Trim();
+                        var normalised = NormaliseConfigPath(rawPath);
+                        if (normalised != null)
+                            return normalised;
+                    }
+                }
+            }
+
+            // Plain-text fallback: find "%LOCALAPPDATA%" or "%USERPROFILE%" near "Configuration file"
+            {
+                var plain = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
+                plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\s+", " ");
+
+                int cfIdx = plain.IndexOf("Configuration file", StringComparison.OrdinalIgnoreCase);
+                if (cfIdx >= 0)
+                {
+                    // Look within the next 500 chars for a Windows env-var path
+                    var window = plain.Substring(cfIdx, Math.Min(500, plain.Length - cfIdx));
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        window,
+                        @"(%LOCALAPPDATA%|%APPDATA%|%USERPROFILE%)[/\\][^\s<>\[\]]+",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (match.Success)
+                    {
+                        var normalised = NormaliseConfigPath(match.Value);
+                        if (normalised != null)
+                            return normalised;
+                    }
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] Parse failed — {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Normalises a PCGW config path to a Windows-style path suitable for passing to
+    /// ResolveEngineIniDir as a projectNameOverride. Converts forward slashes to backslashes,
+    /// trims trailing separators. Returns null if the path doesn't look like a Windows path.
+    /// </summary>
+    private static string? NormaliseConfigPath(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+
+        // Must start with a known Windows env var
+        if (!raw.StartsWith("%LOCALAPPDATA%", StringComparison.OrdinalIgnoreCase) &&
+            !raw.StartsWith("%APPDATA%",      StringComparison.OrdinalIgnoreCase) &&
+            !raw.StartsWith("%USERPROFILE%",  StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // Normalise to backslashes and strip trailing separator
+        var normalised = raw.Replace('/', '\\').TrimEnd('\\');
+
+        // Strip any footnote markers like "[Note 2]" that PCGW appends
+        normalised = System.Text.RegularExpressions.Regex.Replace(normalised, @"\s*\[Note\s*\d+\].*$", "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).TrimEnd('\\');
+
+        // Reject obviously non-Windows paths (Steam compat, Linux, pfx)
+        if (normalised.Contains("steamapps", StringComparison.OrdinalIgnoreCase) ||
+            normalised.Contains("pfx",        StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return string.IsNullOrWhiteSpace(normalised) ? null : normalised;
     }
 
     private void SaveApiCacheToDisk()
