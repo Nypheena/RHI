@@ -46,6 +46,18 @@ public class RenoDXDbService : IRenoDXDbService
         _etagCache = etagCache;
     }
 
+    /// <summary>
+    /// Clears the ETag cache entries for both DB URLs so the next
+    /// <see cref="FetchAllAsync"/> call sends unconditional GETs and picks up
+    /// any changes made to the remote files since the last fetch.
+    /// </summary>
+    public void InvalidateCache()
+    {
+        _etagCache.Invalidate(NamedModsUrl);
+        _etagCache.Invalidate(UnrealUrl);
+        CrashReporter.Log("[RenoDXDbService.InvalidateCache] ETag cache cleared for both DB URLs");
+    }
+
     public async Task<(List<GameMod> Mods, Dictionary<string, RenoDXDbUnrealEntry> UnrealEntries)>
         FetchAllAsync()
     {

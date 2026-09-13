@@ -21,6 +21,16 @@ public class GitHubETagCache
     public bool IsRateLimited => _rateLimited;
 
     /// <summary>
+    /// Removes the cached ETag and body for <paramref name="url"/> so the next
+    /// <see cref="GetWithETagAsync"/> call sends an unconditional GET.
+    /// Use when you know the remote content has changed (e.g. on Refresh).
+    /// </summary>
+    public void Invalidate(string url) => _cache.TryRemove(url, out _);
+
+    /// <summary>Removes all cached ETags and bodies, forcing unconditional GETs on all URLs.</summary>
+    public void InvalidateAll() => _cache.Clear();
+
+    /// <summary>
     /// Sends a GET request with ETag caching. If the resource hasn't changed,
     /// returns the cached body without consuming a rate limit point.
     /// </summary>

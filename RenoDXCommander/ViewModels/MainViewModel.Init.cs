@@ -289,7 +289,11 @@ public partial class MainViewModel
             var lumaTask        = _lumaService.FetchCompletedModsAsync();
             var lumaUeTask      = _lumaService.FetchGenericUeTableAsync();
             var manifestTask    = _manifestService.FetchAsync();
-            // DB fetch — only when dev-unlocked and source is not WikiOnly
+            // DB fetch — only when dev-unlocked and source is not WikiOnly.
+            // On Refresh (forceRescan=true) invalidate the ETag cache first so remote
+            // changes are picked up immediately, matching manifest/wiki behaviour.
+            if (forceRescan)
+                _renoDxDbService.InvalidateCache();
             var dbTask = (DevUnlockService.IsUnlocked && !string.Equals(_settingsViewModel.RenoDxDbSource, "WikiOnly", StringComparison.OrdinalIgnoreCase))
                 ? _renoDxDbService.FetchAllAsync()
                 : Task.FromResult<(List<GameMod>, Dictionary<string, RenoDXDbUnrealEntry>)>((new(), new(StringComparer.OrdinalIgnoreCase)));

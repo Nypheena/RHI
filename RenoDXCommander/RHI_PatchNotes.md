@@ -14,6 +14,11 @@
 - Fixed OptiScaler showing the wrong installed version after a restart. RHI now writes a `rhi_install.txt` file to the game folder at install/update time that records the exact version deployed. On the next launch that file is read directly, so a nightly build (e.g. `20260813`) no longer reverts to showing the current stable version number after a restart.
 - Fixed OptiScaler uninstall sometimes leaving files behind when the staging folder had been updated to a newer version between the install and the uninstall. Uninstall now uses the game-folder manifest to know exactly which files were deployed, rather than scanning the (potentially different) staging folder.
 - Fixed OptiScaler uninstall failing to find the correct DLL filename when `aux_installed.json` was stale — the manifest is now the primary source, with the record as fallback.
+- Fixed OptiScaler DLL naming override not updating `rhi_install.txt` or renaming the `.original` sentinel when the DLL is renamed — uninstall would subsequently look for the wrong filename and leave files behind.
+- Fixed stale `.original` sentinel files left in game folders from previous DLL rename bugs — cleaned up automatically on next launch.
+- Fixed RHI database (rhi-repo) changes not reflecting in the app after a standard Refresh — required a full restart. The database ETag cache is now cleared on Refresh so any changes pushed to the repo appear immediately.
+- Fixed the detail panel not updating for the currently selected game after a Refresh — changes to game notes, mod status, or any other rebuilt card property now show without needing to reselect the game.
+- Fixed UE-Extended game notes from the RHI database not appearing in the RenoDX info dialog. Notes are now shown below the UE-Extended description for all games that have them.
 - Fixed `reshade-shaders` being renamed to `reshade-shaders-original` with a new empty folder in its place. This could happen during Refresh, especially when using Neural Rendering — concurrent shader operations would occasionally race and treat the existing folder as unmanaged.
 - Fixed `renodx-dlss5.addon64` reappearing after removing Neural Rendering. Clearing NR now properly removes DLSS5 Tool from your addon selection so it stays gone.
 - Fixed DLSS5 DX11 Bridge and MFG Ada Unlock re-downloading on every launch even when already up to date.

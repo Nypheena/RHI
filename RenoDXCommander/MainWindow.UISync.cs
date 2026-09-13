@@ -47,6 +47,30 @@ public sealed partial class MainWindow
                         TryRestoreSelection();
                         RefreshFilterButtonStyles();
                         RebuildCustomFilterChips();
+                        // On Refresh (silent=true), the ListView still has its old item selected
+                        // so SelectionChanged never fires and PopulateDetailPanel never runs.
+                        // Force a panel rebuild for the currently displayed card.
+                        if (silent)
+                        {
+                            var selected = GameList.SelectedItem as GameCardViewModel
+                                ?? ViewModel.SelectedGame;
+                            if (selected != null)
+                                DispatcherQueue.TryEnqueue(() =>
+                                {
+                                    // Re-find the card in the new list (same game, new object)
+                                    var refreshed = ViewModel.DisplayedGames.FirstOrDefault(c =>
+                                        c.GameName.Equals(selected.GameName, StringComparison.OrdinalIgnoreCase)
+                                        && (string.IsNullOrEmpty(selected.Source) || c.Source == selected.Source));
+                                    if (refreshed != null)
+                                    {
+                                        GameList.SelectedItem = refreshed;
+                                        ViewModel.SelectedGame = refreshed;
+                                        PopulateDetailPanel(refreshed);
+                                        BuildOverridesPanel(refreshed);
+                                        _detailPanelBuilder?.ApplySectionOrder();
+                                    }
+                                });
+                        }
                     }
                     break;
                 case nameof(ViewModel.StatusText):

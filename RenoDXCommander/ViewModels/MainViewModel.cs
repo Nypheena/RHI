@@ -466,11 +466,17 @@ public partial class MainViewModel : ObservableObject
     {
         var source = _settingsViewModel.RenoDxDbSource;
 
+        // Always feed DB unreal Comments into _genericNotes regardless of source mode —
+        // they supplement wiki content, not replace it, so they should show in the info
+        // dialog even in WikiOnly mode.
+        foreach (var (name, entry) in _dbUnrealEntries)
+            if (!string.IsNullOrEmpty(entry.Comments))
+                _genericNotes[name] = entry.Comments;
+
         if (string.Equals(source, "WikiOnly", StringComparison.OrdinalIgnoreCase))
         {
-            // Nothing to do — _allMods already holds wiki data, clear db state
-            _dbUnrealEntries = new(StringComparer.OrdinalIgnoreCase);
-            _crashReporter.Log("[MergeDbSources] Source=WikiOnly — using wiki mods only");
+            // Mods remain wiki-sourced; only Comments propagation (above) applies
+            _crashReporter.Log("[MergeDbSources] Source=WikiOnly — using wiki mods only, DB comments merged");
             return;
         }
 
@@ -478,10 +484,6 @@ public partial class MainViewModel : ObservableObject
         {
             _allMods = new List<GameMod>(_dbMods);
             _crashReporter.Log($"[MergeDbSources] Source=DbOnly — {_allMods.Count} mods from db");
-            // Feed db comments into genericNotes for the info dialog
-            foreach (var (name, entry) in _dbUnrealEntries)
-                if (!string.IsNullOrEmpty(entry.Comments))
-                    _genericNotes[name] = entry.Comments;
             return;
         }
 
@@ -509,11 +511,6 @@ public partial class MainViewModel : ObservableObject
             }
             _allMods = merged;
             _crashReporter.Log($"[MergeDbSources] Source=Hybrid — {overridden} overridden, {added} added from db, total {_allMods.Count}");
-
-            // Feed db comments into genericNotes
-            foreach (var (name, entry) in _dbUnrealEntries)
-                if (!string.IsNullOrEmpty(entry.Comments))
-                    _genericNotes[name] = entry.Comments;
         }
     }
     private List<GameCardViewModel> _allCards = new();

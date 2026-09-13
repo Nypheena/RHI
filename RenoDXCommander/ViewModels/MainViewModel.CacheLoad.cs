@@ -40,9 +40,13 @@ public partial class MainViewModel
                 parts.Add(effectiveMod.Notes);
             }
 
-            // Do NOT include generic UE game-specific settings — these are for the
-            // generic addon, not UE-Extended. UE-Extended whitelisted games don't
-            // need generic addon installation guidance.
+            // Include DB Comments for this game (game-specific notes from rhi-repo database)
+            var dbComment = GetGenericNote(gameName, genericNotes);
+            if (!string.IsNullOrEmpty(dbComment))
+            {
+                parts.Add("");
+                parts.Add(dbComment);
+            }
 
             return string.Join("\n", parts);
         }
