@@ -306,6 +306,7 @@ public partial class OptiScalerService
                     var gameDlssPath = Path.Combine(card.InstallPath, DlssDllFileName);
                     BackupOriginalIfExists(gameDlssPath);
                     File.Copy(stagedDlssPath, gameDlssPath, overwrite: true);
+                    RhiInstallManifest.AddSharedFileOwner(card.InstallPath, DlssDllFileName, AddonType);
                     CrashReporter.Log($"[OptiScalerService.InstallAsync] Deployed {DlssDllFileName} ({new FileInfo(gameDlssPath).Length} bytes) to game folder");
                 }
 
@@ -316,6 +317,7 @@ public partial class OptiScalerService
                     var gameDlssdPath = Path.Combine(card.InstallPath, DlssdDllFileName);
                     BackupOriginalIfExists(gameDlssdPath);
                     File.Copy(stagedDlssdPath, gameDlssdPath, overwrite: true);
+                    RhiInstallManifest.AddSharedFileOwner(card.InstallPath, DlssdDllFileName, AddonType);
                     CrashReporter.Log($"[OptiScalerService.InstallAsync] Deployed {DlssdDllFileName} ({new FileInfo(gameDlssdPath).Length} bytes) to game folder");
                 }
 
@@ -326,27 +328,25 @@ public partial class OptiScalerService
                     var gameDlssgPath = Path.Combine(card.InstallPath, DlssgDllFileName);
                     BackupOriginalIfExists(gameDlssgPath);
                     File.Copy(stagedDlssgPath, gameDlssgPath, overwrite: true);
+                    RhiInstallManifest.AddSharedFileOwner(card.InstallPath, DlssgDllFileName, AddonType);
                     CrashReporter.Log($"[OptiScalerService.InstallAsync] Deployed {DlssgDllFileName} ({new FileInfo(gameDlssgPath).Length} bytes) to game folder");
                 }
             }
 
             // ── 5b. DlssNr variant: deploy forwarder + nvngx_dlssnr.dll ─────
-            // The forwarder (nvngx.dll_dlssnr.dll) is already deployed by the
-            // main staging loop above (it lives in the archive root alongside OptiScaler.dll).
-            // Here we additionally deploy the nvngx_dlssnr.dll runtime from our cached DLSS manifest.
             if (isDlssNr)
             {
                 progress?.Report(("Deploying DLSS NR runtime...", 72));
                 try
                 {
                     var dlssStreamlineSvc = _dlssStreamlineServiceLazy.Value;
-                    // Always use the newest available NR runtime from the manifest
                     var cachedNrDll = await dlssStreamlineSvc.EnsureNewestDlssnrCachedAsync().ConfigureAwait(false);
                     if (cachedNrDll != null)
                     {
                         var gameNrPath = Path.Combine(card.InstallPath, "nvngx_dlssnr.dll");
                         BackupOriginalIfExists(gameNrPath);
                         File.Copy(cachedNrDll, gameNrPath, overwrite: true);
+                        RhiInstallManifest.AddSharedFileOwner(card.InstallPath, "nvngx_dlssnr.dll", AddonType);
                         CrashReporter.Log($"[OptiScalerService.InstallAsync] Deployed nvngx_dlssnr.dll to game folder");
                     }
                     else
@@ -675,27 +675,36 @@ public partial class OptiScalerService
             var gameDlssPath = Path.Combine(gameDir, DlssDllFileName);
             if (File.Exists(gameDlssPath))
             {
-                File.Delete(gameDlssPath);
-                CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {DlssDllFileName}");
-                RestoreOriginalIfExists(gameDlssPath);
+                if (RhiInstallManifest.RemoveSharedFileOwner(gameDir, DlssDllFileName, AddonType))
+                {
+                    File.Delete(gameDlssPath);
+                    CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {DlssDllFileName}");
+                    RestoreOriginalIfExists(gameDlssPath);
+                }
             }
 
             // ── 2c. Delete deployed nvngx_dlssd.dll and restore original ────
             var gameDlssdPath = Path.Combine(gameDir, DlssdDllFileName);
             if (File.Exists(gameDlssdPath))
             {
-                File.Delete(gameDlssdPath);
-                CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {DlssdDllFileName}");
-                RestoreOriginalIfExists(gameDlssdPath);
+                if (RhiInstallManifest.RemoveSharedFileOwner(gameDir, DlssdDllFileName, AddonType))
+                {
+                    File.Delete(gameDlssdPath);
+                    CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {DlssdDllFileName}");
+                    RestoreOriginalIfExists(gameDlssdPath);
+                }
             }
 
             // ── 2d. Delete deployed nvngx_dlssg.dll and restore original ────
             var gameDlssgPath = Path.Combine(gameDir, DlssgDllFileName);
             if (File.Exists(gameDlssgPath))
             {
-                File.Delete(gameDlssgPath);
-                CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {DlssgDllFileName}");
-                RestoreOriginalIfExists(gameDlssgPath);
+                if (RhiInstallManifest.RemoveSharedFileOwner(gameDir, DlssgDllFileName, AddonType))
+                {
+                    File.Delete(gameDlssgPath);
+                    CrashReporter.Log($"[OptiScalerService.Uninstall] Deleted {DlssgDllFileName}");
+                    RestoreOriginalIfExists(gameDlssgPath);
+                }
             }
 
             // ── 2e. DlssNr variant only: delete nvngx_dlssnr.dll + forwarder, restore originals ──
@@ -708,9 +717,12 @@ public partial class OptiScalerService
                 var gameNrPath = Path.Combine(gameDir, "nvngx_dlssnr.dll");
                 if (File.Exists(gameNrPath) || File.Exists(gameNrPath + ".original"))
                 {
-                    if (File.Exists(gameNrPath)) File.Delete(gameNrPath);
-                    CrashReporter.Log("[OptiScalerService.Uninstall] Deleted nvngx_dlssnr.dll (DlssNr variant)");
-                    RestoreOriginalIfExists(gameNrPath);
+                    if (RhiInstallManifest.RemoveSharedFileOwner(gameDir, "nvngx_dlssnr.dll", AddonType))
+                    {
+                        if (File.Exists(gameNrPath)) File.Delete(gameNrPath);
+                        CrashReporter.Log("[OptiScalerService.Uninstall] Deleted nvngx_dlssnr.dll (DlssNr variant)");
+                        RestoreOriginalIfExists(gameNrPath);
+                    }
                 }
             }
             else if (installedVariant.Equals("DlssNr", StringComparison.OrdinalIgnoreCase)

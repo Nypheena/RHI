@@ -329,6 +329,8 @@ public class Renodx5AddonService
 
             var dest = detectedPath ?? Path.Combine(installPath, dllName);
             SentinelDeploy(src, dest, $"[Renodx5AddonService.DeploySfDlls] {dllName}");
+            // Register ShortFuse as owner of this shared DLSS file
+            RhiInstallManifest.AddSharedFileOwner(installPath, dllName, "ShortFuse");
         }
 
         // Streamline — deploy DLLs to detected folder or install root
@@ -358,11 +360,16 @@ public class Renodx5AddonService
 
         for (int i = 0; i < dllNames.Length; i++)
         {
-            var dest = detectedPaths[i] ?? Path.Combine(installPath, dllNames[i]);
-            SentinelRestore(dest, $"[Renodx5AddonService.RestoreSfDlls] {dllNames[i]}");
+            var dllName = dllNames[i];
+            // Only restore if ShortFuse is the last owner — if OptiScaler still needs this file, leave it
+            if (!RhiInstallManifest.RemoveSharedFileOwner(installPath, dllName, "ShortFuse"))
+                continue;
+
+            var dest = detectedPaths[i] ?? Path.Combine(installPath, dllName);
+            SentinelRestore(dest, $"[Renodx5AddonService.RestoreSfDlls] {dllName}");
         }
 
-        // Streamline DLLs
+        // Streamline DLLs — not shared with OptiScaler, restore unconditionally
         var slFolder = !string.IsNullOrEmpty(detection?.StreamlineFolder)
             ? detection!.StreamlineFolder
             : installPath;
