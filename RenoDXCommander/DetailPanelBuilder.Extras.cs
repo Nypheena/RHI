@@ -591,6 +591,34 @@ public partial class DetailPanelBuilder
                 var dest = Path.Combine(installPath, DeployFileName);
                 if (File.Exists(dest)) File.Delete(dest);
                 CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed '{DeployFileName}' from '{installPath}'");
+
+                // Also remove from addon selections so SyncGameFolder doesn't redeploy it.
+                // MFG Ada Unlock installed via Extras greys out the picker toggle — the user
+                // can't deselect it there, so we must clean up the selection here.
+                const string PackName = "MFG Ada Unlock";
+
+                // Global selection
+                var globalAddons = _window.ViewModel.Settings.EnabledGlobalAddons;
+                if (globalAddons.Remove(PackName))
+                {
+                    _window.ViewModel.SaveSettingsPublic();
+                    CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed '{PackName}' from global addon selection");
+                }
+
+                // Per-game selection (composite key first, then legacy name-only)
+                var gameNameService = _window.ViewModel.GameNameServiceInstance;
+                var compositeKey = Models.GameKey.FromCard(card.GameName, card.Source).ToKey();
+                bool perGameChanged = false;
+                if (gameNameService.PerGameAddonSelection.TryGetValue(compositeKey, out var perGame))
+                    perGameChanged = perGame.Remove(PackName);
+                if (!perGameChanged && gameNameService.PerGameAddonSelection.TryGetValue(card.GameName, out var perGameLegacy))
+                    perGameChanged = perGameLegacy.Remove(PackName);
+                if (perGameChanged)
+                {
+                    _window.ViewModel.SaveSettingsPublic();
+                    CrashReporter.Log($"[BuildMfgAdaUnlockRow] Removed '{PackName}' from per-game addon selection for '{card.GameName}'");
+                }
+
                 RequestExtrasRebuild(card);
             }
             catch (Exception ex)

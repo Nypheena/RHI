@@ -21,7 +21,7 @@
 - Fixed UE-Extended game notes from the RHI database not appearing in the RenoDX info dialog. Notes are now shown below the UE-Extended description for all games that have them.
 - Fixed `reshade-shaders` being renamed to `reshade-shaders-original` with a new empty folder in its place. This could happen during Refresh, especially when using Neural Rendering — concurrent shader operations would occasionally race and treat the existing folder as unmanaged.
 - Fixed `renodx-dlss5.addon64` reappearing after removing Neural Rendering. Clearing NR now properly removes DLSS5 Tool from your addon selection so it stays gone.
-- Fixed DLSS5 DX11 Bridge and MFG Ada Unlock re-downloading on every launch even when already up to date.
+- Fixed MFG Ada Unlock being reinstalled on every Refresh after removing it via the Extras section. When installed via Extras, the addon picker toggle shows as greyed/blocked — meaning the user couldn't deselect it there. Removing via Extras now also clears it from the addon selection so it stays gone.
 
 ### Manifest Updates
 
