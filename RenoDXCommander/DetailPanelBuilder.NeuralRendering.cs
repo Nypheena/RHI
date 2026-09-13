@@ -1350,11 +1350,24 @@ public partial class DetailPanelBuilder
         var det = card.DlssDetection;
         // Only restore each file if Dlss5Tool is the last owner
         if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlss.dll",   "Dlss5Tool"))
+        {
             RestoreWithSentinel(det?.DlssPath   ?? Path.Combine(installPath, "nvngx_dlss.dll"),   "NeuralRendering.RestoreSR");
+            // Also clean up OptiScaler's root copy if it was placed there (different path from plugin path)
+            if (det?.DlssPath != null && !det.DlssPath.Equals(Path.Combine(installPath, "nvngx_dlss.dll"), StringComparison.OrdinalIgnoreCase))
+                RestoreWithSentinel(Path.Combine(installPath, "nvngx_dlss.dll"), "NeuralRendering.RestoreSR.Root");
+        }
         if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssd.dll",  "Dlss5Tool"))
+        {
             RestoreWithSentinel(det?.DlssdPath  ?? Path.Combine(installPath, "nvngx_dlssd.dll"),  "NeuralRendering.RestoreRR");
+            if (det?.DlssdPath != null && !det.DlssdPath.Equals(Path.Combine(installPath, "nvngx_dlssd.dll"), StringComparison.OrdinalIgnoreCase))
+                RestoreWithSentinel(Path.Combine(installPath, "nvngx_dlssd.dll"), "NeuralRendering.RestoreRR.Root");
+        }
         if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssg.dll",  "Dlss5Tool"))
+        {
             RestoreWithSentinel(det?.DlssgPath  ?? Path.Combine(installPath, "nvngx_dlssg.dll"),  "NeuralRendering.RestoreFG");
+            if (det?.DlssgPath != null && !det.DlssgPath.Equals(Path.Combine(installPath, "nvngx_dlssg.dll"), StringComparison.OrdinalIgnoreCase))
+                RestoreWithSentinel(Path.Combine(installPath, "nvngx_dlssg.dll"), "NeuralRendering.RestoreFG.Root");
+        }
         if (RhiInstallManifest.RemoveSharedFileOwner(installPath, "nvngx_dlssnr.dll", "Dlss5Tool"))
             RestoreWithSentinel(det?.DlssnrPath ?? Path.Combine(installPath, "nvngx_dlssnr.dll"), "NeuralRendering.RestoreNR");
     }
