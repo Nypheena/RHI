@@ -538,6 +538,22 @@ public class AddonPackService : IAddonPackService
                         versionToken ??= await ResolveVersionToken(url);
                         var destPath = Path.Combine(StagingDir, safeName + ext);
                         await DownloadFileAsync(url, destPath, entry.PackageName, progress, pctBase, pctRange);
+
+                        // Persist OriginalName so the backfill check doesn't re-download every session
+                        var originalName = Path.GetFileNameWithoutExtension(
+                            Uri.UnescapeDataString(url.Split('/').Last().Split('?').First()));
+                        if (!string.IsNullOrEmpty(originalName))
+                        {
+                            var vData = LoadVersions();
+                            if (!vData.TryGetValue(entry.PackageName, out var vInfo))
+                                vInfo = new AddonVersionInfo();
+                            if (ext.Equals(".addon32", StringComparison.OrdinalIgnoreCase))
+                                vInfo.OriginalName32 = originalName;
+                            else
+                                vInfo.OriginalName64 = originalName;
+                            vData[entry.PackageName] = vInfo;
+                            SaveVersions(vData);
+                        }
                     }
                     anySucceeded = true;
                 }

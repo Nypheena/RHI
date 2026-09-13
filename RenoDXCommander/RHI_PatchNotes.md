@@ -7,9 +7,17 @@
 ### Changes
 
 - **PCGW API detection** — RHI now quietly scrapes PCGamingWiki in the background to verify DirectX versions. Games that PE scanning can't read (Xbox/Game Pass titles, access-denied paths) now show the correct DX11/DX12 badge where PCGW has the data. Halo Infinite, Resonance, and similar Xbox titles that previously showed no API now correctly show DX12.
+- **Neural Rendering: Feeder and Bridge now support addon version pinning** — the Addon Version dropdown is now active for all four NR methods. For Feeder, the combo controls which version of `renodx-dlss5.addon64` is deployed as the neural consumer — the Feeder addon itself (`dlss5-feed.addon64`) always uses the latest version. For Bridge, the combo already controlled the DLSS5 Tool version.
+
+### Bug Fixes
+
+- Fixed `reshade-shaders` being renamed to `reshade-shaders-original` with a new empty folder in its place. This could happen during Refresh, especially when using Neural Rendering — concurrent shader operations would occasionally race and treat the existing folder as unmanaged.
+- Fixed `renodx-dlss5.addon64` reappearing after removing Neural Rendering. Clearing NR now properly removes DLSS5 Tool from your addon selection so it stays gone.
+- Fixed DLSS5 DX11 Bridge and MFG Ada Unlock re-downloading on every launch even when already up to date.
 
 ### Manifest Updates
 
+- Added **ReShade Screenshot Discord Fix** to the addon picker — strips the cICP colour chunk from HDR PNG screenshots so Discord previews them correctly instead of showing washed-out colours.
 - Kingdom Come: Deliverance II added to 64-bit override list (PE scan was returning 32-bit incorrectly)
 - Re-enabled PCGamingWiki AppID lookup (`appid.php`) which was disabled in August 2026 due to a server migration outage. It is now confirmed working again. Existing URL cache will be cleared on next launch to allow fresh lookups via the faster AppID method.
 

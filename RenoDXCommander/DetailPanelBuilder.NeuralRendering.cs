@@ -666,15 +666,18 @@ public partial class DetailPanelBuilder
             nrVersionStack.Opacity   = nrVersionRelevant ? 1.0 : 0.4;
             nrVersionCombo.IsEnabled = nrVersionRelevant;
 
-            // Addon version combo relevant for DLSS5 Tool, Bridge, ShortFuse (not Feeder)
+            // Addon version combo relevant for all methods (controls renodx-dlss5.addon64 version)
+            // For Feeder: controls the neural consumer (renodx-dlss5.addon64) — feeder addon itself always latest
             // Greyed out when already installed — version cannot be changed without uninstalling first
-            bool addonVersionRelevant = selKey != NrMethodFeeder;
-            bool addonVersionEditable = addonVersionRelevant && !anyInstalled;
-            addonVersionStack.Opacity   = addonVersionRelevant ? (anyInstalled ? 0.4 : 1.0) : 0.4;
+            bool addonVersionRelevant = true;
+            bool addonVersionEditable = !anyInstalled;
+            addonVersionStack.Opacity   = anyInstalled ? 0.4 : 1.0;
             addonVersionCombo.IsEnabled = addonVersionEditable;
-            ToolTipService.SetToolTip(addonVersionStack, anyInstalled && addonVersionRelevant
+            ToolTipService.SetToolTip(addonVersionStack, anyInstalled
                 ? "Uninstall Neural Rendering first to change the addon version."
-                : null);
+                : selKey == NrMethodFeeder
+                    ? "Version of renodx-dlss5.addon64 deployed as the neural consumer. The Feeder addon itself always uses the latest version."
+                    : null);
 
             // Remove button visibility
             removeBtn.Visibility = anyInstalled ? Visibility.Visible : Visibility.Collapsed;
@@ -848,7 +851,7 @@ public partial class DetailPanelBuilder
                         break;
 
                     case NrMethodFeeder:
-                        await InstallFeederAddonAsync(card, installBtn, addonSvc);
+                        await InstallFeederAddonAsync(card, installBtn, addonSvc, addonVersionCombo);
                         break;
                 }
 
@@ -877,6 +880,9 @@ public partial class DetailPanelBuilder
                     _window.ViewModel.SaveSettingsPublic();
                     CrashReporter.Log($"[NeuralRendering.Install] Removed conflicting global addons (DLSS5 Tool / ShortFuse) for '{gameName}'");
                 }
+
+                // Also remove from per-game selection if the game uses one
+                RemoveNrConflictingAddonsFromPerGameSelection(gameName, store, conflicting);
 
                 // Re-deploy addons for this game so stale NR addon files are removed immediately
                 _window.ViewModel.DeployAddonsForCard(gameName);
@@ -987,6 +993,16 @@ public partial class DetailPanelBuilder
                     }
 
                     _window.ViewModel.SetNrMethodOverride(gameName, null, store);
+
+                    // Remove conflicting addons from global and per-game selections
+                    var conflictingRemove = new[] { "DLSS5 Tool", "DLSS Tool (ShortFuse)" };
+                    var globalAddonsRemove = _window.ViewModel.Settings.EnabledGlobalAddons;
+                    bool removedGlobal = false;
+                    foreach (var c in conflictingRemove)
+                        if (globalAddonsRemove.RemoveAll(a => a.Equals(c, StringComparison.OrdinalIgnoreCase)) > 0)
+                            removedGlobal = true;
+                    if (removedGlobal) _window.ViewModel.SaveSettingsPublic();
+                    RemoveNrConflictingAddonsFromPerGameSelection(gameName, store, conflictingRemove);
                 });
             }
             catch (Exception ex)
@@ -1528,9 +1544,22 @@ public partial class DetailPanelBuilder
     private async Task InstallFeederAddonAsync(
         GameCardViewModel card,
         Button statusBtn,
-        IAddonPackService addonSvc)
+        IAddonPackService addonSvc,
+        ComboBox? addonVersionCombo = null)
     {
         var installPath = card.InstallPath!;
+        var gameName    = card.GameName;
+        var store       = card.Source ?? "";
+
+        // Resolve requested DLSS5 Tool version (neural consumer) — Latest or pinned
+        string? requestedVersion = null;
+        if (addonVersionCombo != null)
+        {
+            requestedVersion = await DispatchAsync<string?>(_window.DispatcherQueue!,
+                () => addonVersionCombo.SelectedItem as string).ConfigureAwait(false);
+        }
+        bool useLatestConsumer = string.IsNullOrEmpty(requestedVersion) || requestedVersion == "Latest";
+
         _window.DispatcherQueue?.TryEnqueue(() => statusBtn.Content = "Downloading Feeder...");
 
         var entry = addonSvc.AvailablePacks.FirstOrDefault(p =>
@@ -1566,17 +1595,37 @@ public partial class DetailPanelBuilder
         // For 32-bit games the neural consumer runs in host64\ — it must NOT be in the game folder
         // (32-bit ReShade cannot load .addon64 files).
         _window.DispatcherQueue?.TryEnqueue(() => statusBtn.Content = "Deploying DLSS5 Tool...");
-        await rdx5Svc.EnsureStagingAsync().ConfigureAwait(false);
-        if (rdx5Svc.IsStagingReady && !card.Is32Bit)
+
+        // Resolve the source path for the neural consumer — versioned or latest
+        string? consumerSourcePath = null;
+        if (!useLatestConsumer && requestedVersion != null)
+        {
+            var staged = await rdx5Svc.EnsureVersionStagedAsync("dlss5tool", requestedVersion).ConfigureAwait(false);
+            if (staged)
+            {
+                consumerSourcePath = rdx5Svc.GetVersionedStagedFilePath("dlss5tool", requestedVersion);
+                _window.ViewModel.SetNrAddonVersion(gameName, requestedVersion, store);
+            }
+            else
+            {
+                CrashReporter.Log($"[NeuralRendering] Could not stage DLSS5 Tool v{requestedVersion} for Feeder — falling back to latest");
+            }
+        }
+        if (consumerSourcePath == null)
+        {
+            await rdx5Svc.EnsureStagingAsync().ConfigureAwait(false);
+            consumerSourcePath = rdx5Svc.IsStagingReady ? rdx5Svc.StagedFilePath : null;
+            _window.ViewModel.SetNrAddonVersion(gameName, null, store);
+        }
+
+        if (consumerSourcePath != null && !card.Is32Bit)
         {
             await Task.Run(() =>
             {
                 var deployDir = ModInstallService.GetAddonDeployPath(installPath);
                 Directory.CreateDirectory(deployDir);
-                File.Copy(rdx5Svc.StagedFilePath, Path.Combine(deployDir, "renodx-dlss5.addon64"), overwrite: true);
-                // Note: intentionally NOT calling TrackAddonDeployment — NR-managed files are not
-                // tracked by AddonPackService to prevent the stale-cleanup pass from removing them.
-                CrashReporter.Log($"[NeuralRendering] Deployed renodx-dlss5.addon64 (Feeder consumer) to '{deployDir}'");
+                File.Copy(consumerSourcePath, Path.Combine(deployDir, "renodx-dlss5.addon64"), overwrite: true);
+                CrashReporter.Log($"[NeuralRendering] Deployed renodx-dlss5.addon64 (v{(useLatestConsumer ? "latest" : requestedVersion)}, Feeder consumer) to '{deployDir}'");
             }).ConfigureAwait(false);
         }
         else if (card.Is32Bit)
@@ -1970,6 +2019,21 @@ public partial class DetailPanelBuilder
             });
         }
         catch (Exception ex) { CrashReporter.Log($"[NeuralRendering.RemoveFeederShaders] Failed for '{gameName}' — {ex.Message}"); }
+    }
+
+    private void RemoveNrConflictingAddonsFromPerGameSelection(string gameName, string store, string[] conflicting)
+    {
+        var key = GameKey.From(gameName, store).ToKey();
+        if (!_gameNameService.PerGameAddonSelection.TryGetValue(key, out var perGame) || perGame == null) return;
+        bool changed = false;
+        foreach (var c in conflicting)
+            if (perGame.RemoveAll(a => a.Equals(c, StringComparison.OrdinalIgnoreCase)) > 0)
+                changed = true;
+        if (changed)
+        {
+            _window.ViewModel.SaveSettingsPublic();
+            CrashReporter.Log($"[NeuralRendering] Removed conflicting addons (DLSS5 Tool / ShortFuse) from per-game selection for '{gameName}'");
+        }
     }
 
     private static void RemoveAddonFile(string installPath, string fileName, string logCtx)

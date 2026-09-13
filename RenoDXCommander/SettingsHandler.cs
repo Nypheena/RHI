@@ -2159,44 +2159,62 @@ public class SettingsHandler
 
     public async void NexusConnectBtn_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        var key = _window.NexusApiKeyBox.Password?.Trim() ?? "";
-        if (string.IsNullOrEmpty(key))
-        {
-            await DialogService.ShowSafeAsync(new ContentDialog
-            {
-                Title = "Nexus Mods",
-                Content = "Please paste your API key first. You can find it at nexusmods.com → Settings → API Keys.",
-                CloseButtonText = "OK",
-                XamlRoot = _window.Content.XamlRoot,
-                RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Dark,
-            });
-            return;
-        }
+        var nexusDl  = App.Services.GetRequiredService<NexusDownloadService>();
+        var nexusSso = App.Services.GetRequiredService<NexusSsoService>();
 
         _window.NexusConnectBtn.IsEnabled = false;
-        _window.NexusStatusText.Text = "Validating...";
+        _window.NexusStatusText.Text = "Opening browser for authorisation...";
         _window.NexusStatusText.Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush);
 
-        var nexusDl = App.Services.GetRequiredService<NexusDownloadService>();
-        var info = await nexusDl.ValidateApiKeyAsync(key);
+        using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(120));
+        string? receivedKey = null;
 
-        _window.NexusConnectBtn.IsEnabled = true;
-
-        if (info == null)
+        nexusSso.BrowserUrlReady += url =>
         {
-            _window.NexusStatusText.Text = "Invalid API key or network error.";
-            _window.NexusStatusText.Foreground = UIFactory.Brush(ResourceKeys.AccentRedBrush);
-            return;
+            // Open the Nexus SSO page in the default browser
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+            catch (Exception ex) { CrashReporter.Log($"[SettingsHandler.NexusConnectBtn_Click] Failed to open browser — {ex.Message}"); }
+
+            _window.DispatcherQueue?.TryEnqueue(() =>
+                _window.NexusStatusText.Text = "Waiting for authorisation in browser...");
+        };
+
+        try
+        {
+            receivedKey = await nexusSso.AuthoriseAsync(cts.Token).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) { }
 
-        // Persist — never log the key value
-        ViewModel.Settings.NexusApiKey    = key;
-        ViewModel.Settings.NexusIsPremium = info.IsPremium;
-        ViewModel.Settings.NexusUsername  = info.Name;
-        ViewModel.SaveSettingsPublic();
+        _window.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            _window.NexusConnectBtn.IsEnabled = true;
 
-        RefreshNexusStatus();
-        CrashReporter.Log($"[SettingsHandler.NexusConnectBtn_Click] Connected as {info.Name} (Premium={info.IsPremium})");
+            if (string.IsNullOrEmpty(receivedKey))
+            {
+                _window.NexusStatusText.Text = "Authorisation timed out or was cancelled.";
+                _window.NexusStatusText.Foreground = UIFactory.Brush(ResourceKeys.AccentRedBrush);
+                return;
+            }
+
+            _window.NexusStatusText.Text = "Validating...";
+            _window.NexusStatusText.Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush);
+
+            var info = await nexusDl.ValidateApiKeyAsync(receivedKey).ConfigureAwait(false);
+            if (info == null)
+            {
+                _window.NexusStatusText.Text = "Received key was invalid. Please try again.";
+                _window.NexusStatusText.Foreground = UIFactory.Brush(ResourceKeys.AccentRedBrush);
+                return;
+            }
+
+            ViewModel.Settings.NexusApiKey    = receivedKey;
+            ViewModel.Settings.NexusIsPremium = info.IsPremium;
+            ViewModel.Settings.NexusUsername  = info.Name;
+            ViewModel.SaveSettingsPublic();
+
+            RefreshNexusStatus();
+            CrashReporter.Log($"[SettingsHandler.NexusConnectBtn_Click] Connected via SSO as {info.Name} (Premium={info.IsPremium})");
+        });
     }
 
     public void NexusDisconnectBtn_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -2205,7 +2223,6 @@ public class SettingsHandler
         ViewModel.Settings.NexusIsPremium = false;
         ViewModel.Settings.NexusUsername  = "";
         ViewModel.SaveSettingsPublic();
-        _window.NexusApiKeyBox.Password = "";
         RefreshNexusStatus();
         CrashReporter.Log("[SettingsHandler.NexusDisconnectBtn_Click] Disconnected from Nexus Mods");
     }

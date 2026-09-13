@@ -122,6 +122,7 @@ public partial class App : Application
         services.AddSingleton<SeenLumaModsService>();
         services.AddSingleton<IRenoDXDbService, RenoDXDbService>();
         services.AddSingleton<NexusDownloadService>();
+        services.AddSingleton<NexusSsoService>();
         // Lazy<IDlssStreamlineService> breaks the circular dependency between OptiScalerService ↔ DlssStreamlineService
         services.AddSingleton<Lazy<IDlssStreamlineService>>(sp => new Lazy<IDlssStreamlineService>(() => sp.GetRequiredService<IDlssStreamlineService>()));
 

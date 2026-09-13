@@ -380,7 +380,11 @@ public partial class ShaderPackService
         }
         else
         {
-            // Not yet managed — handle rename + marker, then deploy selected packs
+            // Not yet managed — claim the folder with the marker immediately before
+            // doing any filesystem work, so concurrent SyncGameFolder calls see it
+            // as managed and don't rename it to reshade-shaders-original.
+            WriteMarker(gameDir);
+
             var rsDir = Path.Combine(gameDir, GameReShadeShaders);
             if (Directory.Exists(rsDir))
             {
