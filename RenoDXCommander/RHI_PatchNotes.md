@@ -8,6 +8,7 @@
 ### Changes
 
 - **PCGamingWiki API detection** — RHI now uses PCGamingWiki in the background to verify DirectX versions for games it can't scan directly (Xbox/Game Pass titles, access-denied paths). Halo Infinite, Resonance, and similar titles that previously showed no API badge now correctly show DX12.
+- **PCGamingWiki config path detection** — RHI now scrapes the config file location from PCGamingWiki and uses it to place Engine.ini in the correct folder. Fixes UE-Extended installs for games that haven't been launched yet, where the config folder doesn't exist yet and RHI previously had to guess the project name.
 - **Neural Rendering: Feeder and Bridge now support addon version pinning** — the Addon Version dropdown is now active for all four NR methods.
 - **OptiScaler cog Upscaler API defaults to the game's detected API** — opens on DX12 for DX12 games instead of always defaulting to DX11.
 - **More reliable OptiScaler install records** — RHI now writes a `rhi_install.txt` file to the game folder on every OptiScaler install, recording the exact version, variant, and file list that was deployed. This is used on the next launch to show the correct version (fixes nightly builds reverting to stable version numbers on restart), and on uninstall to know exactly which files to clean up regardless of whether the staging folder has since been updated.
