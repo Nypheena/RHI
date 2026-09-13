@@ -199,6 +199,17 @@ public class Renodx5AddonService
         if (string.IsNullOrEmpty(installPath)) return;
         var nrDllPath = Path.Combine(installPath, "nvngx_dlssnr.dll");
         var sentinel  = nrDllPath + ".original";
+
+        // If OptiScaler DlssNr is installed in this folder, it owns nvngx_dlssnr.dll —
+        // leave it alone regardless of which NR method is being removed.
+        var manifest = Models.RhiInstallManifest.Read(installPath);
+        if (manifest != null
+            && string.Equals(manifest.Variant, "DlssNr", StringComparison.OrdinalIgnoreCase))
+        {
+            _crashReporter.Log($"[Renodx5AddonService.RemoveNrDll] Skipping — OptiScaler DlssNr owns nvngx_dlssnr.dll in '{installPath}'");
+            return;
+        }
+
         if (!File.Exists(sentinel))
         {
             _crashReporter.Log($"[Renodx5AddonService.RemoveNrDll] No sentinel — leaving nvngx_dlssnr.dll untouched");
