@@ -51,6 +51,15 @@ public class RhiInstallManifest
     [JsonPropertyName("folders")]
     public List<string> Folders { get; set; } = [];
 
+    /// <summary>
+    /// The Neural Rendering method currently installed in this game folder, if any.
+    /// Populated by the NR section install. Allows other components (e.g. OptiScaler uninstall)
+    /// to detect that nvngx_dlssnr.dll is owned by NR and should not be removed.
+    /// Values: "Dlss5Tool", "ShortFuse", "Feeder", "Bridge" — or null/absent if NR is not installed.
+    /// </summary>
+    [JsonPropertyName("nrMethod")]
+    public string? NrMethod { get; set; }
+
     // ── Static helpers ──────────────────────────────────────────────────────
 
     /// <summary>Filename written inside the game folder.</summary>
@@ -117,7 +126,24 @@ public class RhiInstallManifest
     }
 
     /// <summary>
-    /// Updates <c>installedAs</c> in an existing <c>rhi_install.txt</c> after the main DLL
+    /// Updates just the <c>nrMethod</c> field in an existing <c>rhi_install.txt</c>.
+    /// Pass <c>null</c> to clear it (NR uninstalled). No-op if no manifest exists.
+    /// </summary>
+    public static void SetNrMethod(string gameDir, string? nrMethod)
+    {
+        try
+        {
+            var manifest = Read(gameDir);
+            if (manifest == null) return;
+            manifest.NrMethod = nrMethod;
+            Write(gameDir, manifest);
+            CrashReporter.Log($"[RhiInstallManifest.SetNrMethod] NrMethod={nrMethod ?? "null"} in {gameDir}");
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[RhiInstallManifest.SetNrMethod] Failed in '{gameDir}' — {ex.Message}");
+        }
+    }
     /// has been renamed on disk (e.g. via DLL naming overrides).
     /// Also renames the <c>&lt;oldDllName&gt;.original</c> sentinel file to
     /// <c>&lt;newDllName&gt;.original</c> so uninstall can still locate and restore it.

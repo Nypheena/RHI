@@ -698,20 +698,18 @@ public partial class OptiScalerService
                 RestoreOriginalIfExists(gameDlssgPath);
             }
 
-            // ── 2e. DlssNr variant: delete nvngx_dlssnr.dll + forwarder, restore originals ──
-            // nvngx_dlssnr.dll was backed up via SentinelBackup on install, so
-            // SentinelRestore handles the three cases automatically:
-            //   0-byte sentinel → RHI placed it, delete both
-            //   non-zero sentinel → game had its own copy, restore it
-            //   no sentinel → leave it alone (e.g. deployed by another tool)
-            // nvngx.dll_dlssnr.dll (the forwarder) is in the staging folder so it's
-            // already covered by the deployedFileNames loop below.
-            var gameNrPath = Path.Combine(gameDir, "nvngx_dlssnr.dll");
-            if (File.Exists(gameNrPath) || File.Exists(gameNrPath + ".original"))
+            // ── 2e. DlssNr variant only: delete nvngx_dlssnr.dll + forwarder, restore originals ──
+            // Only run for DlssNr variant — for Stable/Nightly, nvngx_dlssnr.dll was not
+            // deployed by OptiScaler and may belong to the NR section (ShortFuse/DLSS5 Tool).
+            if (installedVariant.Equals("DlssNr", StringComparison.OrdinalIgnoreCase))
             {
-                if (File.Exists(gameNrPath)) File.Delete(gameNrPath);
-                CrashReporter.Log("[OptiScalerService.Uninstall] Deleted nvngx_dlssnr.dll");
-                RestoreOriginalIfExists(gameNrPath);
+                var gameNrPath = Path.Combine(gameDir, "nvngx_dlssnr.dll");
+                if (File.Exists(gameNrPath) || File.Exists(gameNrPath + ".original"))
+                {
+                    if (File.Exists(gameNrPath)) File.Delete(gameNrPath);
+                    CrashReporter.Log("[OptiScalerService.Uninstall] Deleted nvngx_dlssnr.dll (DlssNr variant)");
+                    RestoreOriginalIfExists(gameNrPath);
+                }
             }
 
             // ── 3. Delete all other deployed files ───────────────────────────

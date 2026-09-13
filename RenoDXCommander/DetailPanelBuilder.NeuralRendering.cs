@@ -866,6 +866,10 @@ public partial class DetailPanelBuilder
                 // Persist chosen method
                 _window.ViewModel.SetNrMethodOverride(gameName, selKey, store);
 
+                // Record the active NR method in rhi_install.txt for cross-component reference
+                // (e.g. OptiScaler uninstall uses this to know nvngx_dlssnr.dll is NR-owned)
+                Models.RhiInstallManifest.SetNrMethod(installPath, selKey);
+
                 // Remove conflicting global addons — DLSS5 Tool and ShortFuse both deploy NR addons
                 // that conflict with the NR section. Remove them from the global set so they don't
                 // get re-deployed on every refresh.
@@ -993,6 +997,9 @@ public partial class DetailPanelBuilder
                     }
 
                     _window.ViewModel.SetNrMethodOverride(gameName, null, store);
+
+                    // Clear NR method from rhi_install.txt
+                    Models.RhiInstallManifest.SetNrMethod(installPath, null);
 
                     // Remove conflicting addons from global and per-game selections
                     var conflictingRemove = new[] { "DLSS5 Tool", "DLSS Tool (ShortFuse)" };
