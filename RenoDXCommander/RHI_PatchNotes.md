@@ -8,6 +8,7 @@
 
 - **PCGW API detection** — RHI now quietly scrapes PCGamingWiki in the background to verify DirectX versions. Games that PE scanning can't read (Xbox/Game Pass titles, access-denied paths) now show the correct DX11/DX12 badge where PCGW has the data. Halo Infinite, Resonance, and similar Xbox titles that previously showed no API now correctly show DX12.
 - **Neural Rendering: Feeder and Bridge now support addon version pinning** — the Addon Version dropdown is now active for all four NR methods. For Feeder, the combo controls which version of `renodx-dlss5.addon64` is deployed as the neural consumer — the Feeder addon itself (`dlss5-feed.addon64`) always uses the latest version. For Bridge, the combo already controlled the DLSS5 Tool version.
+- **OptiScaler cog Upscaler API defaults to the game's detected API** — opening the cog on a DX12 game now shows DX12 selected instead of always defaulting to DX11.
 
 ### Bug Fixes
 
@@ -22,6 +23,7 @@
 - Fixed `reshade-shaders` being renamed to `reshade-shaders-original` with a new empty folder in its place. This could happen during Refresh, especially when using Neural Rendering — concurrent shader operations would occasionally race and treat the existing folder as unmanaged.
 - Fixed `renodx-dlss5.addon64` reappearing after removing Neural Rendering. Clearing NR now properly removes DLSS5 Tool from your addon selection so it stays gone.
 - Fixed batch DLSS/Streamline deploy getting stuck when a game has been removed from RHI or its install folder no longer exists — those games are now skipped.
+- Fixed DLSS5 DX11 Bridge and MFG Ada Unlock re-downloading on every launch even when already up to date.
 - Fixed MFG Ada Unlock being reinstalled on every Refresh after removing it via the Extras section. When installed via Extras, the addon picker toggle shows as greyed/blocked — meaning the user couldn't deselect it there. Removing via Extras now also clears it from the addon selection so it stays gone.
 
 ### Manifest Updates
