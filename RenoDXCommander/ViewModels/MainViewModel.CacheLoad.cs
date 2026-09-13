@@ -651,11 +651,15 @@ public partial class MainViewModel
             {
                 newCard.OsStatus = GameStatus.Installed;
                 newCard.OsInstalledFile = osRec.InstalledAs;
-                newCard.OsInstalledVersion = osRec.OsVariant switch {
-                    "Nightly" => _optiScalerService.StagedVersionNightly,
-                    "DlssNr"  => _optiScalerService.StagedVersionDlssNr,
-                    _         => _optiScalerService.StagedVersion
-                };
+                // Prefer the version recorded in rhi_install.txt — see BuildCards for rationale.
+                var osGameManifest = RhiInstallManifest.Read(installPath);
+                newCard.OsInstalledVersion = !string.IsNullOrEmpty(osGameManifest?.Version)
+                    ? osGameManifest.Version
+                    : osRec.OsVariant switch {
+                        "Nightly" => _optiScalerService.StagedVersionNightly,
+                        "DlssNr"  => _optiScalerService.StagedVersionDlssNr,
+                        _         => _optiScalerService.StagedVersion
+                    };
             }
 
             // RE Framework from records: prefer Name+Store match, fallback to Name+InstallPath

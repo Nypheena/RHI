@@ -11,12 +11,16 @@
 
 ### Bug Fixes
 
+- Fixed OptiScaler showing the wrong installed version after a restart. RHI now writes a `rhi_install.txt` file to the game folder at install/update time that records the exact version deployed. On the next launch that file is read directly, so a nightly build (e.g. `20260813`) no longer reverts to showing the current stable version number after a restart.
+- Fixed OptiScaler uninstall sometimes leaving files behind when the staging folder had been updated to a newer version between the install and the uninstall. Uninstall now uses the game-folder manifest to know exactly which files were deployed, rather than scanning the (potentially different) staging folder.
+- Fixed OptiScaler uninstall failing to find the correct DLL filename when `aux_installed.json` was stale — the manifest is now the primary source, with the record as fallback.
 - Fixed `reshade-shaders` being renamed to `reshade-shaders-original` with a new empty folder in its place. This could happen during Refresh, especially when using Neural Rendering — concurrent shader operations would occasionally race and treat the existing folder as unmanaged.
 - Fixed `renodx-dlss5.addon64` reappearing after removing Neural Rendering. Clearing NR now properly removes DLSS5 Tool from your addon selection so it stays gone.
 - Fixed DLSS5 DX11 Bridge and MFG Ada Unlock re-downloading on every launch even when already up to date.
 
 ### Manifest Updates
 
+- Fixed Engine.ini being written to the wrong AppData folder for **Solasta 2** — the game's exe lives under a `Brimstone` subfolder which RHI was using as the project name. Now correctly targets `AppData\Local\Solasta 2\Saved\Config\Windows`.
 - Added **ReShade Screenshot Discord Fix** to the addon picker — strips the cICP colour chunk from HDR PNG screenshots so Discord previews them correctly instead of showing washed-out colours.
 - Kingdom Come: Deliverance II added to 64-bit override list (PE scan was returning 32-bit incorrectly)
 - Re-enabled PCGamingWiki AppID lookup (`appid.php`) which was disabled in August 2026 due to a server migration outage. It is now confirmed working again. Existing URL cache will be cleared on next launch to allow fresh lookups via the faster AppID method.

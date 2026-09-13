@@ -306,6 +306,12 @@ public partial class MainViewModel
             // One-time migration: move nightly DLLs from old shared folder to new nightly folder
             MigrateNightlyStagingFolder();
 
+            // Cleanup: remove orphaned .original sentinel files from game folders where the
+            // base filename no longer matches the installed OptiScaler DLL name. These were
+            // left behind by earlier versions when DLL naming overrides renamed the DLL without
+            // also renaming the sentinel.
+            CleanOrphanedOptiScalerSentinels();
+
             rsTask           = Task.Run(async () => {
                 try
                 {

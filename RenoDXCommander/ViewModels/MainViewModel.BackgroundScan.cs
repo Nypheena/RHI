@@ -846,6 +846,76 @@ public partial class MainViewModel
     }
 
     /// <summary>
+    /// Cleanup: scan all installed OptiScaler game folders for orphaned <c>.original</c> sentinel
+    /// files whose base filename no longer matches the current installed DLL name. These were
+    /// left behind by earlier versions when the DLL naming override renamed the DLL without also
+    /// renaming the accompanying sentinel. Safe to run on every startup — no-op when all sentinels
+    /// are correctly named.
+    /// </summary>
+    private void CleanOrphanedOptiScalerSentinels()
+    {
+        try
+        {
+            var auxRecords = _auxInstaller.LoadAll();
+            var osRecords = auxRecords.Where(r =>
+                r.AddonType.Equals(OptiScalerService.AddonType, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(r.InstallPath)
+                && !string.IsNullOrEmpty(r.InstalledAs));
+
+            // The set of filenames whose .original we legitimately expect to exist
+            static HashSet<string> ExpectedSentinelBases(AuxInstalledRecord rec)
+            {
+                var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    rec.InstalledAs,                          // main DLL e.g. d3d11.dll
+                    "nvngx_dlss.dll",
+                    "nvngx_dlssd.dll",
+                    "nvngx_dlssg.dll",
+                    "nvngx_dlssnr.dll",
+                    OptiScalerService.ReShadeCoexistName,     // ReShade64.dll
+                };
+                // Also include any companion files from the CompanionFiles list
+                foreach (var cf in OptiScalerService.CompanionFiles)
+                    expected.Add(cf);
+                return expected;
+            }
+
+            int cleaned = 0;
+            foreach (var rec in osRecords)
+            {
+                if (!Directory.Exists(rec.InstallPath)) continue;
+                var expected = ExpectedSentinelBases(rec);
+
+                foreach (var originalFile in Directory.GetFiles(rec.InstallPath, "*.original", SearchOption.TopDirectoryOnly))
+                {
+                    // Strip .original to get the base filename
+                    var baseName = Path.GetFileNameWithoutExtension(originalFile);
+                    if (expected.Contains(baseName)) continue;
+
+                    // Orphaned sentinel — base filename not in the expected set
+                    try
+                    {
+                        File.Delete(originalFile);
+                        cleaned++;
+                        _crashReporter.Log($"[CleanOrphanedOptiScalerSentinels] Deleted orphaned sentinel '{Path.GetFileName(originalFile)}' in '{rec.InstallPath}'");
+                    }
+                    catch (Exception delEx)
+                    {
+                        _crashReporter.Log($"[CleanOrphanedOptiScalerSentinels] Failed to delete '{Path.GetFileName(originalFile)}' — {delEx.Message}");
+                    }
+                }
+            }
+
+            if (cleaned > 0)
+                _crashReporter.Log($"[CleanOrphanedOptiScalerSentinels] Cleaned {cleaned} orphaned sentinel file(s)");
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[CleanOrphanedOptiScalerSentinels] Failed (non-fatal) — {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// One-time migration: if the legacy shared DXVK staging folder (%LocalAppData%\RHI\dxvk\)
     /// has DLLs, move them to the correct variant-specific folder based on the global setting.
     /// </summary>

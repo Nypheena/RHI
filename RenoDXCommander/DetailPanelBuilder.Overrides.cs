@@ -328,6 +328,7 @@ public partial class DetailPanelBuilder
                         if (System.IO.File.Exists(newPath)) System.IO.File.Delete(newPath);
                         System.IO.File.Move(oldPath, newPath);
                         CrashReporter.Log($"[DetailPanelBuilder] Renamed OptiScaler DLL '{card.OsInstalledFile}' → '{osName}' for '{capturedName}'");
+                        var prevOsName = card.OsInstalledFile;
                         card.OsInstalledFile = osName;
 
                         // Update the tracking record
@@ -338,6 +339,9 @@ public partial class DetailPanelBuilder
                             osRecord.InstalledAs = osName;
                             _auxInstallService.SaveAuxRecord(osRecord);
                         }
+
+                        // Update rhi_install.txt and rename the .original sentinel
+                        RhiInstallManifest.UpdateInstalledAs(card.InstallPath, prevOsName, osName);
                     }
                 }
                 catch (Exception ex)
@@ -545,11 +549,14 @@ public partial class DetailPanelBuilder
                                 }
                                 if (!System.IO.File.Exists(osNewPath))
                                 {
+                                    var prevOsName = targetCard.OsInstalledFile ?? osCfg!;
                                     System.IO.File.Move(osOldPath, osNewPath);
                                     targetCard.OsInstalledFile = defaultOsName;
                                     var osRecord = _auxInstallService.FindRecord(capturedName, targetCard.InstallPath, "OptiScaler");
                                     if (osRecord != null) { osRecord.InstalledAs = defaultOsName; _auxInstallService.SaveAuxRecord(osRecord); }
                                     CrashReporter.Log($"[DetailPanelBuilder] Reverted OptiScaler DLL '{osCfg}' → '{defaultOsName}' for '{capturedName}'");
+                                    // Update rhi_install.txt and rename the .original sentinel
+                                    RhiInstallManifest.UpdateInstalledAs(targetCard.InstallPath, prevOsName, defaultOsName);
                                 }
                             }
                         }

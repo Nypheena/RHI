@@ -456,6 +456,68 @@ public partial class OptiScalerService
                 CrashReporter.Log($"[OptiScalerService.InstallAsync] DXVK coexistence check failed — {dxvkEx.Message}");
             }
 
+            // ── 10. Write rhi_install.txt manifest to game folder ────────────
+            // Records the exact version, variant, and deployed file/folder list so that
+            // RHI always knows what version is installed (not the current staging version)
+            // and always knows which files to clean up on uninstall, regardless of whether
+            // the staging folder still exists or has been updated since.
+            {
+                var installedVersion = isDlssNr ? StagedVersionDlssNr : isNightly ? StagedVersionNightly : StagedVersion;
+                var manifestFiles = new List<string>();
+                var manifestFolders = new List<string>();
+
+                // Root files — mirror the install loop's skip logic
+                foreach (var stagingFile in Directory.GetFiles(effectiveStagingDir, "*", SearchOption.TopDirectoryOnly))
+                {
+                    var fn = Path.GetFileName(stagingFile);
+                    if (fn.Equals("version.txt", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (fn.Equals(RhiInstallManifest.FileName, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (fn.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".sh", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase)
+                        || fn.Equals("LICENSE", StringComparison.OrdinalIgnoreCase)
+                        || fn.StartsWith("!!", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (fn.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
+                        manifestFiles.Add(effectiveDllName); // record actual deployed filename
+                    else if (!fn.Equals(IniFileName, StringComparison.OrdinalIgnoreCase))
+                        manifestFiles.Add(fn);
+                }
+                // Always include the INI and DLSS DLLs (deployed separately)
+                manifestFiles.Add(IniFileName);
+                if (GetStagedDlssPath()  != null) manifestFiles.Add(DlssDllFileName);
+                if (GetStagedDlssdPath() != null) manifestFiles.Add(DlssdDllFileName);
+                if (GetStagedDlssgPath() != null) manifestFiles.Add(DlssgDllFileName);
+                if (isDlssNr) manifestFiles.Add("nvngx_dlssnr.dll");
+
+                // Subdirectories — mirror the install loop's skip logic
+                foreach (var stagingSubDir in Directory.GetDirectories(effectiveStagingDir))
+                {
+                    var dn = Path.GetFileName(stagingSubDir);
+                    if (dn.Equals("Licenses", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (dn.Equals("redist",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (dn.Equals("docs",     StringComparison.OrdinalIgnoreCase)) continue;
+                    manifestFolders.Add(dn);
+                }
+                // OptiPatcher lives in plugins/ — always record it
+                manifestFolders.Add("plugins");
+
+                RhiInstallManifest.Write(card.InstallPath, new RhiInstallManifest
+                {
+                    Component   = AddonType,
+                    Variant     = variant,
+                    Version     = installedVersion ?? "",
+                    InstalledAs = effectiveDllName,
+                    InstalledAt = DateTime.UtcNow,
+                    Files       = manifestFiles,
+                    Folders     = manifestFolders,
+                });
+            }
+
             progress?.Report(("OptiScaler installed!", 100));
             CrashReporter.Log($"[OptiScalerService.InstallAsync] Install complete for {card.GameName}");
 
@@ -477,47 +539,79 @@ public partial class OptiScalerService
             var gameDir = card.InstallPath;
 
             // ── 1. Delete all OptiScaler files and restore originals ─────────
-            // Determine which files were deployed by checking the staging folder
-            // Use the variant-appropriate staging dir if available
+            // Prefer rhi_install.txt (game-folder manifest) for the file/folder list —
+            // it records exactly what was deployed at install time, independent of whether
+            // the staging folder is present or has since been updated to a different version.
+            // Fall back to scanning the staging folder if no manifest exists (legacy installs).
             var record0 = _auxInstaller.FindRecord(card.GameName, gameDir, AddonType);
             var installedVariant = record0?.OsVariant ?? "Stable";
-            var effectiveStagingDir = (installedVariant == "DlssNr"  && IsStagingReadyDlssNr)  ? DlssNrStagingDir
-                : (installedVariant == "Nightly" && IsStagingReadyNightly) ? NightlyStagingDir
-                : (IsStagingReady ? StagingDir : null);
 
-            var stagingFiles = effectiveStagingDir != null
-                ? Directory.GetFiles(effectiveStagingDir, "*", SearchOption.TopDirectoryOnly)
-                : Array.Empty<string>();
-            var stagingDirs = effectiveStagingDir != null
-                ? Directory.GetDirectories(effectiveStagingDir)
-                : Array.Empty<string>();
-            var deployedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var gameManifest = RhiInstallManifest.Read(gameDir);
+            var deployedFileNames  = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var deployedFolderNames = new List<string>();
 
-            foreach (var stagingFile in stagingFiles)
+            if (gameManifest != null)
             {
-                var fileName = Path.GetFileName(stagingFile);
-                if (fileName.Equals("version.txt", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (fileName.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
-                    continue; // handled separately below (renamed on deploy)
-                if (fileName.Equals(IniFileName, StringComparison.OrdinalIgnoreCase))
-                    continue; // handled separately below
-                // Skip non-game files (same filter as install/update loops)
-                if (fileName.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)
-                    || fileName.EndsWith(".sh", StringComparison.OrdinalIgnoreCase)
-                    || fileName.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
-                    || fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-                    || fileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-                    || fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                    || fileName.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase)
-                    || fileName.Equals("LICENSE", StringComparison.OrdinalIgnoreCase)
-                    || fileName.StartsWith("!!", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                deployedFileNames.Add(fileName);
+                // ── Manifest path (preferred) ────────────────────────────────
+                // Remove the main DLL and INI from the file list — they are handled
+                // explicitly in the steps below, not through the generic file loop.
+                foreach (var fn in gameManifest.Files)
+                {
+                    if (fn.Equals(IniFileName, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (fn.Equals(gameManifest.InstalledAs, StringComparison.OrdinalIgnoreCase)) continue;
+                    deployedFileNames.Add(fn);
+                }
+                foreach (var dn in gameManifest.Folders)
+                    deployedFolderNames.Add(dn);
+                CrashReporter.Log($"[OptiScalerService.Uninstall] Using rhi_install.txt manifest for {card.GameName} (v{gameManifest.Version} {gameManifest.Variant})");
+            }
+            else
+            {
+                // ── Staging-scan fallback (legacy installs without manifest) ─
+                CrashReporter.Log($"[OptiScalerService.Uninstall] No rhi_install.txt found for {card.GameName} — falling back to staging dir scan");
+                var effectiveStagingDir = (installedVariant == "DlssNr"  && IsStagingReadyDlssNr)  ? DlssNrStagingDir
+                    : (installedVariant == "Nightly" && IsStagingReadyNightly) ? NightlyStagingDir
+                    : (IsStagingReady ? StagingDir : null);
+
+                if (effectiveStagingDir != null)
+                {
+                    foreach (var stagingFile in Directory.GetFiles(effectiveStagingDir, "*", SearchOption.TopDirectoryOnly))
+                    {
+                        var fileName = Path.GetFileName(stagingFile);
+                        if (fileName.Equals("version.txt", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (fileName.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (fileName.Equals(IniFileName, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (fileName.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)
+                            || fileName.EndsWith(".sh", StringComparison.OrdinalIgnoreCase)
+                            || fileName.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
+                            || fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+                            || fileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                            || fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                            || fileName.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase)
+                            || fileName.Equals("LICENSE", StringComparison.OrdinalIgnoreCase)
+                            || fileName.StartsWith("!!", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        deployedFileNames.Add(fileName);
+                    }
+                    foreach (var stagingSubDir in Directory.GetDirectories(effectiveStagingDir))
+                    {
+                        var dn = Path.GetFileName(stagingSubDir);
+                        if (dn.Equals("Licenses", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (dn.Equals("redist",   StringComparison.OrdinalIgnoreCase)) continue;
+                        if (dn.Equals("docs",     StringComparison.OrdinalIgnoreCase)) continue;
+                        deployedFolderNames.Add(dn);
+                    }
+                }
+                // Always clean up plugins/ regardless — OptiPatcher lives there
+                if (!deployedFolderNames.Contains("plugins", StringComparer.OrdinalIgnoreCase))
+                    deployedFolderNames.Add("plugins");
             }
 
             // Delete the renamed OptiScaler DLL
+            // Priority: card VM state → game manifest → aux_installed.json record
             var installedDll = card.OsInstalledFile;
+            if (string.IsNullOrEmpty(installedDll))
+                installedDll = gameManifest?.InstalledAs;
             if (string.IsNullOrEmpty(installedDll))
             {
                 var record = _auxInstaller.FindRecord(card.GameName, gameDir, AddonType);
@@ -633,9 +727,8 @@ public partial class OptiScalerService
             }
 
             // ── 3b. Clean up deployed subdirectories ─────────────────────────
-            foreach (var stagingSubDir in stagingDirs)
+            foreach (var dirName in deployedFolderNames)
             {
-                var dirName = Path.GetFileName(stagingSubDir);
                 if (dirName.Equals("Licenses", StringComparison.OrdinalIgnoreCase))
                     continue;
                 if (dirName.Equals("docs", StringComparison.OrdinalIgnoreCase))
@@ -805,6 +898,9 @@ public partial class OptiScalerService
             card.OsStatus = GameStatus.NotInstalled;
             card.OsInstalledFile = null;
             card.OsInstalledVersion = null;
+
+            // ── 7. Remove rhi_install.txt from game folder ───────────────────
+            RhiInstallManifest.Delete(gameDir);
 
             CrashReporter.Log($"[OptiScalerService.Uninstall] Uninstall complete for {card.GameName}");
         }
@@ -1093,6 +1189,62 @@ public partial class OptiScalerService
             if (isDlssNr) HasUpdateDlssNr = false;
             else if (isNightly) HasUpdateNightly = false;
             else HasUpdate = false;
+
+            // ── 7. Rewrite rhi_install.txt with the new version ───────────────
+            // Manifest is rebuilt from the new staging dir so the file list is current.
+            {
+                var updatedVersion = isDlssNr ? StagedVersionDlssNr : isNightly ? StagedVersionNightly : StagedVersion;
+                var manifestFiles = new List<string>();
+                var manifestFolders = new List<string>();
+
+                foreach (var stagingFile in Directory.GetFiles(effectiveStagingDir, "*", SearchOption.TopDirectoryOnly))
+                {
+                    var fn = Path.GetFileName(stagingFile);
+                    if (fn.Equals("version.txt", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (fn.Equals(RhiInstallManifest.FileName, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (fn.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".sh", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                        || fn.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase)
+                        || fn.Equals("LICENSE", StringComparison.OrdinalIgnoreCase)
+                        || fn.StartsWith("!!", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (fn.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
+                        manifestFiles.Add(installedDll); // record actual filename on disk
+                    else if (!fn.Equals(IniFileName, StringComparison.OrdinalIgnoreCase))
+                        manifestFiles.Add(fn);
+                }
+                manifestFiles.Add(IniFileName);
+                if (GetStagedDlssPath()  != null) manifestFiles.Add(DlssDllFileName);
+                if (GetStagedDlssdPath() != null) manifestFiles.Add(DlssdDllFileName);
+                if (GetStagedDlssgPath() != null) manifestFiles.Add(DlssgDllFileName);
+                if (isDlssNr) manifestFiles.Add("nvngx_dlssnr.dll");
+
+                foreach (var stagingSubDir in Directory.GetDirectories(effectiveStagingDir))
+                {
+                    var dn = Path.GetFileName(stagingSubDir);
+                    if (dn.Equals("Licenses", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (dn.Equals("redist",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (dn.Equals("docs",     StringComparison.OrdinalIgnoreCase)) continue;
+                    manifestFolders.Add(dn);
+                }
+                manifestFolders.Add("plugins");
+
+                var variantStr = isDlssNr ? "DlssNr" : isNightly ? "Nightly" : "Stable";
+                RhiInstallManifest.Write(gameDir, new RhiInstallManifest
+                {
+                    Component   = AddonType,
+                    Variant     = variantStr,
+                    Version     = updatedVersion ?? "",
+                    InstalledAs = installedDll,
+                    InstalledAt = DateTime.UtcNow,
+                    Files       = manifestFiles,
+                    Folders     = manifestFolders,
+                });
+            }
 
             progress?.Report(("OptiScaler updated!", 100));
             CrashReporter.Log($"[OptiScalerService.UpdateAsync] Update complete for {card.GameName}");
