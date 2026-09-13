@@ -213,7 +213,7 @@ public sealed partial class MainWindow
             bool shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
             bool ctrl  = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
             bool alt   = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-            hotkeyString = HotkeyManager.BuildHotkeyString(vk, shift, ctrl, alt);
+            hotkeyString = HotkeyManager.BuildScreenshotHotkeyString(vk, shift, ctrl, alt);
             hotkeyBox.Text = HotkeyManager.FormatHotkeyDisplay(hotkeyString);
             ev.Handled = true;
         };

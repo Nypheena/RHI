@@ -1195,12 +1195,12 @@ public class SettingsHandler
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
         // Build and store the hotkey string in KeyOverlay format (Req 2.2)
-        _currentHotkeyString = HotkeyManager.BuildHotkeyString(vk, shift, ctrl, alt);
+        _currentHotkeyString = HotkeyManager.BuildScreenshotHotkeyString(vk, shift, ctrl, alt);
 
         // Update the TextBox display with human-readable format (Req 2.1)
         if (sender is TextBox hotkeyBox)
         {
-            hotkeyBox.Text = HotkeyManager.FormatHotkeyDisplay(vk, shift, ctrl, alt);
+            hotkeyBox.Text = HotkeyManager.FormatHotkeyDisplay(_currentHotkeyString);
         }
 
         // Prevent the TextBox from receiving the character
