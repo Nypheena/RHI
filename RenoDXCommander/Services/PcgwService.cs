@@ -397,7 +397,7 @@ public class PcgwService : IPcgwService
         "RHI", "pcgw_api_cache.json");
 
     /// <summary>Bump when ParseApiSection or ParseConfigFilesSection logic changes to force a full rescrape.</summary>
-    private const int ApiCacheVersion = 8;
+    private const int ApiCacheVersion = 9;
     private static readonly string ApiCacheVersionPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "pcgw_api_cache_v.txt");
@@ -694,16 +694,22 @@ public class PcgwService : IPcgwService
                 }
             }
 
-            // Plain-text fallback: find "%LOCALAPPDATA%" or "%USERPROFILE%" near "Configuration file"
+            // Plain-text fallback: search the whole page for a Windows env-var path
+            // near "Configuration file". Skip the first hit (table of contents) by
+            // looking for the second occurrence of "Configuration file".
             {
                 var plain = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
                 plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\s+", " ");
 
+                // Find the second occurrence of "Configuration file" to skip the TOC entry
                 int cfIdx = plain.IndexOf("Configuration file", StringComparison.OrdinalIgnoreCase);
                 if (cfIdx >= 0)
                 {
-                    // Look within the next 500 chars for a Windows env-var path
-                    var window = plain.Substring(cfIdx, Math.Min(500, plain.Length - cfIdx));
+                    int cfIdx2 = plain.IndexOf("Configuration file", cfIdx + 1, StringComparison.OrdinalIgnoreCase);
+                    int searchFrom = cfIdx2 >= 0 ? cfIdx2 : cfIdx;
+
+                    // Look within the next 800 chars for a Windows env-var path
+                    var window = plain.Substring(searchFrom, Math.Min(800, plain.Length - searchFrom));
                     var match = System.Text.RegularExpressions.Regex.Match(
                         window,
                         @"(%LOCALAPPDATA%|%APPDATA%|%USERPROFILE%)[/\\][^\s<>\[\]]+",
@@ -719,7 +725,7 @@ public class PcgwService : IPcgwService
                     }
                     else
                     {
-                        CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] No env-var path near 'Configuration file' in text fallback. Window: '{window.Substring(0, Math.Min(200, window.Length))}'");
+                        CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] No env-var path found. Window: '{window.Substring(0, Math.Min(200, window.Length))}'");
                     }
                 }
             }
