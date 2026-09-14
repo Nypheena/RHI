@@ -380,11 +380,10 @@ public partial class ShaderPackService
         }
         else
         {
-            // Not yet managed — claim the folder with the marker immediately before
-            // doing any filesystem work, so concurrent SyncGameFolder calls see it
-            // as managed and don't rename it to reshade-shaders-original.
-            WriteMarker(gameDir);
-
+            // Not yet managed — check for an existing user folder BEFORE writing the
+            // marker (WriteMarker creates the directory as a side effect, which would
+            // cause the freshly-created empty folder to be renamed to reshade-shaders-original
+            // on a clean install with no prior reshade-shaders folder).
             var rsDir = Path.Combine(gameDir, GameReShadeShaders);
             if (Directory.Exists(rsDir))
             {
@@ -399,6 +398,9 @@ public partial class ShaderPackService
                 catch (Exception ex)
                 { CrashReporter.Log($"[ShaderPackService.SyncGameFolder] Failed to rename existing reshade-shaders — {ex.Message}"); }
             }
+
+            // Now claim the (freshly absent or never-existed) folder with the marker.
+            WriteMarker(gameDir);
 
             DeployPacksIfAbsent(selectedPackIds, Path.Combine(rsDir, "Shaders"), Path.Combine(rsDir, "Textures"), fileExclusions);
             WriteMarker(gameDir);
