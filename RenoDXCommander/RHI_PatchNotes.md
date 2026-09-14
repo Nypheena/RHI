@@ -5,7 +5,7 @@
 - **Export Game Data** — new button in Settings next to Copy Logs. Gathers your game library data (graphics API, exe paths, engine, store IDs) and copies a zip to clipboard. Paste into Discord to share with the community — submissions help RHI detect APIs and install paths correctly for more games.
 - **GitHub API token support** — if you're hitting rate limits (OptiScaler NR staging not available, version checks not completing), create `%LocalAppData%\RHI\github_api.txt` and paste a GitHub personal access token on a single line. No scopes needed — a free token for public repos takes about 30 seconds to generate at github.com/settings/tokens. Raises the limit from 60 to 5000 API calls per hour.
 - **Nexus Mods support for Luma** — Luma mods hosted on Nexus Mods (e.g. Mass Effect, Medal of Honor: Airborne, Borderlands 2) now show a "Get on Nexus Mods" button that takes you directly to the download page. Mods with both a GitHub and Nexus link (e.g. Prey, BioShock Remastered) now show both options. Full one-click Nexus install is wired but pending Nexus API approval.
-- **dgVoodoo2 auto-detection** — RHI now automatically detects when a named Luma mod requires dgVoodoo2 (for DX9 games like Mass Effect, Borderlands 2, Medal of Honor: Airborne) by reading the Luma wiki's Special Notes column. No longer relies solely on a hardcoded manifest list. dgVoodoo2 also updated to v2.87.4.
+- **dgVoodoo2 auto-detection** — RHI now automatically detects when a Luma mod requires dgVoodoo2 (for DX9 games like Mass Effect, Borderlands 2, Medal of Honor: Airborne) by reading the Luma wiki's Special Notes column, including which specific dgVoodoo2 version the mod recommends. No longer relies on a hardcoded list.
 
 ### Changes
 
@@ -32,6 +32,8 @@
 - Fixed "Apply to All Games" in Screenshots & Hotkeys doing nothing when the screenshot path is blank — hotkeys and effect list style now apply regardless. Thanks to @tzachbon for the contribution.
 - Fixed UI freezing for a few seconds during OptiScaler downloads — progress and status message updates no longer trigger a full detail panel rebuild. Thanks to @Nypheena for the contribution.
 - Fixed an empty `reshade-shaders-original` folder being created on clean ReShade installs — on a fresh game folder with no prior `reshade-shaders`, RHI was accidentally creating the folder and immediately renaming it as a backup. On uninstall this empty folder would be restored as `reshade-shaders`, leaving just the management marker with no shaders.
+- Fixed Luma installs via drag-drop or the downloads watcher missing several post-install steps — ReShade, DLSS, dgVoodoo2, Engine.ini keys, and launch arguments are now all applied correctly regardless of how the Luma archive is installed.
+- Fixed ReShade being deployed as `d3d9.dll` on DX9 games when dgVoodoo2 is also being installed — dgVoodoo2 needs `d3d9.dll` to intercept the game's DX9 calls, so ReShade now correctly installs as `dxgi.dll` instead, hooking dgVoodoo2's DX11 output.
 
 ### Manifest Updates
 
@@ -40,6 +42,8 @@
 - Kingdom Come: Deliverance II added to the 64-bit override list.
 - Added **Ultra ReShade by Ultra+** to the shader picker — a single-shader "poor man's DLSS5" effect with bloom, contrast, haze/dehaze and saturation.
 - Five Hearts Under One Roof added to the 64-bit override list.
+- Mass Effect (2007) install path corrected to the `Binaries` subfolder.
+- 007 First Light install path corrected to the `Retail` subfolder.
 
 ---
 
