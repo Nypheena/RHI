@@ -397,7 +397,7 @@ public class PcgwService : IPcgwService
         "RHI", "pcgw_api_cache.json");
 
     /// <summary>Bump when ParseApiSection or ParseConfigFilesSection logic changes to force a full rescrape.</summary>
-    private const int ApiCacheVersion = 10;
+    private const int ApiCacheVersion = 11;
     private static readonly string ApiCacheVersionPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "pcgw_api_cache_v.txt");
@@ -483,13 +483,12 @@ public class PcgwService : IPcgwService
             var info = ParseApiSection(html);
 
             // Always attempt config path parsing — even when API section wasn't found
-            // (some games have config paths but no DX12 entry we track)
-            var configPath = ParseConfigFilesSection(html);
-            if (configPath != null)
+            var (configPath, configPathXbox) = ParseConfigFilesSection(html);
+            if (configPath != null || configPathXbox != null)
             {
-                // Merge into info (create a minimal info object if API parse returned null)
                 info ??= new PcgwApiInfo();
-                info.ConfigPath = configPath;
+                info.ConfigPath     = configPath;
+                info.ConfigPathXbox = configPathXbox;
             }
 
             if (info != null)
@@ -499,7 +498,8 @@ public class PcgwService : IPcgwService
                 CrashReporter.Log($"[PcgwService.FetchApiInfoAsync] '{gameName}': " +
                     $"DX9={info.HasDirectX9} DX10={info.HasDirectX10} DX11={info.HasDirectX11} " +
                     $"DX12={info.HasDirectX12} Vulkan={info.HasVulkan} OGL={info.HasOpenGL}" +
-                    (info.ConfigPath != null ? $" ConfigPath='{info.ConfigPath}'" : ""));
+                    (info.ConfigPath != null ? $" ConfigPath='{info.ConfigPath}'" : "") +
+                    (info.ConfigPathXbox != null ? $" ConfigPathXbox='{info.ConfigPathXbox}'" : ""));
             }
             else
             {
@@ -623,10 +623,11 @@ public class PcgwService : IPcgwService
 
     /// <summary>
     /// Parses the "Game data → Configuration file(s) location" section from a PCGW page.
-    /// Returns the Windows config path (normalised to backslashes) or null if not found.
-    /// Only returns paths containing %LOCALAPPDATA% or %USERPROFILE% — skips Mac/Linux/Steam paths.
+    /// Parses the "Game data → Configuration file(s) location" section from a PCGW page.
+    /// Returns (windowsPath, xboxPath) — either may be null. Normalised to backslashes.
+    /// Only returns paths with %LOCALAPPDATA%/%USERPROFILE% — skips Mac/Linux/Steam paths.
     /// </summary>
-    private static string? ParseConfigFilesSection(string html)
+    private static (string? Windows, string? Xbox) ParseConfigFilesSection(string html)
     {
         try
         {
@@ -675,47 +676,62 @@ public class PcgwService : IPcgwService
                 rows ??= configTable.SelectNodes(".//tr");
                 if (rows != null)
                 {
+                    string? pathWindows = null;
+                    string? pathXbox    = null;
+
                     foreach (var row in rows)
                     {
                         var systemTh = row.SelectSingleNode(".//th[@scope='row']");
                         if (systemTh == null) continue;
 
                         var system = HtmlAgilityPack.HtmlEntity.DeEntitize(systemTh.InnerText).Trim();
-                        if (!system.Contains("Windows", StringComparison.OrdinalIgnoreCase)
-                            || system.Contains("Steam Play", StringComparison.OrdinalIgnoreCase))
-                            continue;
+
+                        // Skip Linux/macOS/Steam Play rows
+                        if (system.Contains("Steam Play",  StringComparison.OrdinalIgnoreCase)) continue;
+                        if (system.Contains("Linux",       StringComparison.OrdinalIgnoreCase)) continue;
+                        if (system.Contains("macOS",       StringComparison.OrdinalIgnoreCase)) continue;
+                        if (system.Contains("OS X",        StringComparison.OrdinalIgnoreCase)) continue;
+
+                        bool isXbox = system.Contains("Microsoft Store", StringComparison.OrdinalIgnoreCase)
+                                   || system.Contains("Xbox",             StringComparison.OrdinalIgnoreCase)
+                                   || system.Contains("Game Pass",        StringComparison.OrdinalIgnoreCase)
+                                   || system.Contains("Windows Store",    StringComparison.OrdinalIgnoreCase);
+                        bool isWindows = !isXbox && system.Contains("Windows", StringComparison.OrdinalIgnoreCase);
+
+                        if (!isWindows && !isXbox) continue;
 
                         // Location td — prefer the monospace span text which holds the actual path
                         var locationTd = row.SelectSingleNode(".//td[contains(@class,'table-gamedata-body-location')]")
                                       ?? row.SelectSingleNode(".//td");
                         if (locationTd == null) continue;
 
-                        // Try the monospace span first (most reliable)
                         var monoSpan = locationTd.SelectSingleNode(".//span[contains(@class,'monospace')]");
                         var rawPath = monoSpan != null
                             ? HtmlAgilityPack.HtmlEntity.DeEntitize(monoSpan.InnerText).Trim()
                             : HtmlAgilityPack.HtmlEntity.DeEntitize(locationTd.InnerText).Trim();
 
-                        // InnerText of <abbr> nodes gives abbr title — strip those by getting
-                        // text nodes only when the path looks wrong (no % sign)
-                        if (!rawPath.Contains('%') && locationTd != null)
+                        if (!rawPath.Contains('%'))
                         {
-                            // Walk text nodes directly to get the raw path without abbr expansions
                             var textNodes = locationTd.SelectNodes(".//text()");
                             if (textNodes != null)
-                            {
-                                rawPath = string.Concat(textNodes
-                                    .Select(n => HtmlAgilityPack.HtmlEntity.DeEntitize(n.InnerText)))
-                                    .Trim();
-                            }
+                                rawPath = string.Concat(textNodes.Select(n => HtmlAgilityPack.HtmlEntity.DeEntitize(n.InnerText))).Trim();
                         }
 
                         var normalised = NormaliseConfigPath(rawPath);
-                        if (normalised != null)
-                        {
-                            CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] Found via table: '{normalised}'");
-                            return normalised;
-                        }
+                        if (normalised == null) continue;
+
+                        if (isXbox)
+                            pathXbox = normalised;
+                        else
+                            pathWindows = normalised;
+                    }
+
+                    if (pathWindows != null || pathXbox != null)
+                    {
+                        CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] Found via table:" +
+                            (pathWindows != null ? $" Windows='{pathWindows}'" : "") +
+                            (pathXbox    != null ? $" Xbox='{pathXbox}'"    : ""));
+                        return (pathWindows, pathXbox);
                     }
                 }
             }
@@ -746,7 +762,7 @@ public class PcgwService : IPcgwService
                         if (normalised != null)
                         {
                             CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] Found via text fallback: '{normalised}'");
-                            return normalised;
+                            return (normalised, null);
                         }
                     }
                     else
@@ -756,12 +772,12 @@ public class PcgwService : IPcgwService
                 }
             }
 
-            return null;
+            return (null, null);
         }
         catch (Exception ex)
         {
             CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] Parse failed — {ex.Message}");
-            return null;
+            return (null, null);
         }
     }
 

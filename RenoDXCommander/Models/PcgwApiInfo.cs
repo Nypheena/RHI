@@ -21,4 +21,11 @@ public class PcgwApiInfo
     /// Null if not found or not a Windows path. Passed directly to ResolveEngineIniDir as projectNameOverride.
     /// </summary>
     public string? ConfigPath { get; set; }
+
+    /// <summary>
+    /// The Microsoft Store / Xbox Game Pass config path, scraped from the "Microsoft Store" row
+    /// in the PCGW config table. Usually ends in \WinGDK instead of \Windows.
+    /// Falls back to ConfigPath when null.
+    /// </summary>
+    public string? ConfigPathXbox { get; set; }
 }

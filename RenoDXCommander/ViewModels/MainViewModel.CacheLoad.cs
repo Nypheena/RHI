@@ -840,11 +840,17 @@ public partial class MainViewModel
                 // Apply scraped config file path to EngineIniProjectOverride for UE games —
                 // only when manifest hasn't already set one (same logic as BuildCards).
                 if (newCard.EngineIniProjectOverride == null
-                    && pcgwInfo?.ConfigPath != null
+                    && (pcgwInfo?.ConfigPath != null || pcgwInfo?.ConfigPathXbox != null)
                     && (engine == EngineType.Unreal
                         || newCard.EngineHint?.Contains("Unreal", StringComparison.OrdinalIgnoreCase) == true))
                 {
-                    newCard.EngineIniProjectOverride = pcgwInfo.ConfigPath;
+                    bool isXboxCard = string.Equals(game.Source, "Xbox", StringComparison.OrdinalIgnoreCase)
+                                   || string.Equals(game.Source, "Game Pass", StringComparison.OrdinalIgnoreCase);
+                    var chosenPath = isXboxCard
+                        ? (pcgwInfo?.ConfigPathXbox ?? pcgwInfo?.ConfigPath)
+                        : pcgwInfo?.ConfigPath;
+                    if (chosenPath != null)
+                        newCard.EngineIniProjectOverride = chosenPath;
                 }
             }
 
