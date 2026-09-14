@@ -188,8 +188,25 @@ public class RhiInstallManifest
             if (manifest == null) return;
             if (manifest.Components.Remove(component))
             {
-                Write(gameDir, manifest);
-                CrashReporter.Log($"[RhiInstallManifest.RemoveComponent] Removed {component} record from {gameDir}");
+                // If the manifest is now empty (no OptiScaler data, no shared files,
+                // no other components, no NR method), delete it entirely rather than
+                // leaving a hollow shell behind.
+                bool isEmpty = string.IsNullOrEmpty(manifest.InstalledAs)
+                            && manifest.Files.Count == 0
+                            && manifest.Folders.Count == 0
+                            && manifest.SharedFiles.Count == 0
+                            && manifest.Components.Count == 0
+                            && manifest.NrMethod == null;
+                if (isEmpty)
+                {
+                    Delete(gameDir);
+                    CrashReporter.Log($"[RhiInstallManifest.RemoveComponent] Removed {component} — manifest empty, deleted from {gameDir}");
+                }
+                else
+                {
+                    Write(gameDir, manifest);
+                    CrashReporter.Log($"[RhiInstallManifest.RemoveComponent] Removed {component} record from {gameDir}");
+                }
             }
         }
         catch (Exception ex)
@@ -209,8 +226,23 @@ public class RhiInstallManifest
             var manifest = Read(gameDir);
             if (manifest == null) return;
             manifest.NrMethod = nrMethod;
-            Write(gameDir, manifest);
-            CrashReporter.Log($"[RhiInstallManifest.SetNrMethod] NrMethod={nrMethod ?? "null"} in {gameDir}");
+
+            // If clearing NrMethod and manifest is otherwise empty, delete the file
+            if (nrMethod == null
+                && string.IsNullOrEmpty(manifest.InstalledAs)
+                && manifest.Files.Count == 0
+                && manifest.Folders.Count == 0
+                && manifest.SharedFiles.Count == 0
+                && manifest.Components.Count == 0)
+            {
+                Delete(gameDir);
+                CrashReporter.Log($"[RhiInstallManifest.SetNrMethod] Cleared NrMethod — manifest empty, deleted from {gameDir}");
+            }
+            else
+            {
+                Write(gameDir, manifest);
+                CrashReporter.Log($"[RhiInstallManifest.SetNrMethod] NrMethod={nrMethod ?? "null"} in {gameDir}");
+            }
         }
         catch (Exception ex)
         {
