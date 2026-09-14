@@ -1090,6 +1090,9 @@ public partial class MainViewModel
                 }
             }
         }
+
+        // Clear the action message — drag-drop path has no subsequent step to overwrite it
+        card.FadeMessage(m => card.LumaActionMessage = m, "✅ Luma installed!");
     }
 
     [RelayCommand]
