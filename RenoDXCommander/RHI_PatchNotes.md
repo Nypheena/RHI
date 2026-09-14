@@ -4,7 +4,7 @@
 
 - **Export Game Data** — new button in Settings next to Copy Logs. Gathers your game library data (graphics API, exe paths, engine, store IDs) and copies a zip to clipboard. Paste into Discord to share with the community — submissions help RHI detect APIs and install paths correctly for more games.
 - **GitHub API token support** — if you're hitting rate limits (OptiScaler NR staging not available, version checks not completing), create `%LocalAppData%\RHI\github_api.txt` and paste a GitHub personal access token on a single line. No scopes needed — a free token for public repos takes about 30 seconds to generate at github.com/settings/tokens. Raises the limit from 60 to 5000 API calls per hour.
-- **Nexus Mods support for Luma** — Luma mods that are hosted on Nexus Mods (e.g. Mass Effect, Medal of Honor: Airborne, Borderlands 2) now show a "Get on Nexus Mods" install button. Premium Nexus users get one-click install; free users are taken to the mod page. Mods with both a GitHub and Nexus link (e.g. Prey, BioShock Remastered) now show both options.
+- **Nexus Mods support for Luma** — Luma mods hosted on Nexus Mods (e.g. Mass Effect, Medal of Honor: Airborne, Borderlands 2) now show a "Get on Nexus Mods" button that takes you directly to the download page. Mods with both a GitHub and Nexus link (e.g. Prey, BioShock Remastered) now show both options. Full one-click Nexus install is wired but pending Nexus API approval.
 
 ### Changes
 
