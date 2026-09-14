@@ -942,120 +942,7 @@ public partial class MainViewModel
             card.LumaActionMessage = "Luma installed!";
             card.FadeMessage(m => card.LumaActionMessage = m, card.LumaActionMessage);
 
-            // Deploy RHI's newest DLSS version (Luma bundles its own — RHI manages it instead)
-            try
-            {
-                card.LumaActionMessage = "Updating DLSS...";
-                var newestDlssPath = await _dlssStreamlineService.EnsureNewestDlssCachedAsync();
-                if (newestDlssPath != null && File.Exists(newestDlssPath))
-                {
-                    var targetDlssPath = Path.Combine(card.InstallPath, "nvngx_dlss.dll");
-                    AuxInstallService.SentinelBackup(targetDlssPath);
-                    File.Copy(newestDlssPath, targetDlssPath, overwrite: true);
-                    _crashReporter.Log($"[InstallLumaAsync] Deployed newest DLSS to '{targetDlssPath}'");
-                }
-            }
-            catch (Exception ex)
-            {
-                _crashReporter.Log($"[InstallLumaAsync] DLSS deploy failed for '{card.GameName}' — {ex.Message}");
-            }
-
-            // Write EnableHDR=1 and DisplayMode=1 to reshade.ini [Luma] section — default On, user can disable via cog
-            AuxInstallService.SetLumaReshadeIniValue(card.InstallPath, "EnableHDR", "1");
-            AuxInstallService.SetLumaReshadeIniValue(card.InstallPath, "DisplayMode", "1");
-
-            // Now install RHI's own ReShade (respects user's channel — Stable/Nightly)
-            // Luma's bundled ReShade DLL was excluded from the zip — RHI manages ReShade.
-            card.LumaActionMessage = "Installing ReShade...";
-            await InstallReShadeAsync(card);
-
-            // ── dgVoodoo2 (DX9→DX11 translation layer — required for some legacy games) ────
-            // Must be deployed AFTER ReShade so we can confirm dxgi.dll is claimed by ReShade.
-            if (_manifest?.LumaRequiresDgVoodoo?.Contains(card.GameName, StringComparer.OrdinalIgnoreCase) == true
-                && _manifest.DgVoodooVersions?.Count > 0)
-            {
-                try
-                {
-                    card.LumaActionMessage = "Installing dgVoodoo2...";
-                    var dgVoodooSvc = App.Services.GetRequiredService<DgVoodooService>();
-                    var versionEntry = _manifest.DgVoodooVersions.First();
-                    await dgVoodooSvc.EnsureStagedAsync(versionEntry.Key, versionEntry.Value).ConfigureAwait(false);
-                    var deployed = dgVoodooSvc.DeployToGame(card.InstallPath, versionEntry.Key);
-                    // Add deployed files to the tracking record so uninstall cleans them up
-                    foreach (var f in deployed)
-                        if (!record.InstalledFiles.Contains(f, StringComparer.OrdinalIgnoreCase))
-                            record.InstalledFiles.Add(f);
-                    // Re-save the record with updated file list
-                    _lumaService.SaveLumaRecord(record);
-                    _crashReporter.Log($"[InstallLumaAsync] dgVoodoo2 v{versionEntry.Key} deployed for '{card.GameName}'");
-                }
-                catch (Exception dgEx)
-                {
-                    _crashReporter.Log($"[InstallLumaAsync] dgVoodoo2 deploy failed for '{card.GameName}' — {dgEx.Message}");
-                }
-            }
-
-            // ── Generic Luma post-install actions ─────────────────────────────────
-            if (card.LumaMod?.IsGenericLuma == true)
-            {
-                // Write game-specific Engine.ini keys scraped from the Luma wiki
-                if (_lumaGenericEntries.TryGetValue(card.GameName, out var genericEntry)
-                    && genericEntry.EngineIniKeys.Count > 0)
-                {
-                    try
-                    {
-                        AuxInstallService.ApplyEngineIniCustomKeys(
-                            card.InstallPath,
-                            genericEntry.EngineIniKeys,
-                            card.EngineIniProjectOverride,
-                            card.GameName,
-                            card.Source);
-                        _crashReporter.Log($"[InstallLumaAsync] Wrote {genericEntry.EngineIniKeys.Count} Engine.ini key(s) for '{card.GameName}'");
-
-                        // If the wiki specified TAA keys, mark TAA as enabled so the cog shows "On"
-                        bool hasTaaKeys = genericEntry.EngineIniKeys.Any(k =>
-                            k.Key.Equals("r.DefaultFeature.AntiAliasing", StringComparison.OrdinalIgnoreCase)
-                            || k.Key.Equals("r.PostProcessAAQuality", StringComparison.OrdinalIgnoreCase));
-                        if (hasTaaKeys)
-                        {
-                            _gameNameService.LumaTaaEnabled.Add(card.GameName);
-                            SaveNameMappings();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _crashReporter.Log($"[InstallLumaAsync] Engine.ini write failed for '{card.GameName}' — {ex.Message}");
-                    }
-                }
-
-                // Auto-populate launch args if required and not already set
-                if (_lumaGenericEntries.TryGetValue(card.GameName, out var launchEntry)
-                    && !string.IsNullOrWhiteSpace(launchEntry.LaunchArgs))
-                {
-                    var existing = _gameNameService.LaunchArgsOverrides.TryGetValue(card.GameName, out var v) ? v : "";
-                    if (string.IsNullOrWhiteSpace(existing))
-                    {
-                        _gameNameService.LaunchArgsOverrides[card.GameName] = launchEntry.LaunchArgs;
-                        SaveNameMappings();
-                        _crashReporter.Log($"[InstallLumaAsync] Auto-set launch args '{launchEntry.LaunchArgs}' for '{card.GameName}'");
-                        // Rebuild overrides panel so the launch arg field shows immediately
-                        RequestOverridesPanelRebuild?.Invoke(card);
-                    }
-                }
-                else if (card.DetectedApis.Contains(GraphicsApiType.DirectX11)
-                         && card.DetectedApis.Contains(GraphicsApiType.DirectX12))
-                {
-                    // Dual-API game (DX11+DX12) — Luma requires DX11 mode, auto-set -dx11 if not already set
-                    var existing = _gameNameService.LaunchArgsOverrides.TryGetValue(card.GameName, out var vd) ? vd : "";
-                    if (string.IsNullOrWhiteSpace(existing))
-                    {
-                        _gameNameService.LaunchArgsOverrides[card.GameName] = "-dx11";
-                        SaveNameMappings();
-                        _crashReporter.Log($"[InstallLumaAsync] Auto-set -dx11 for dual-API game '{card.GameName}'");
-                        RequestOverridesPanelRebuild?.Invoke(card);
-                    }
-                }
-            }
+            await ApplyLumaPostInstallAsync(card, record);
         }
         catch (Exception ex)
         {
@@ -1066,6 +953,123 @@ public partial class MainViewModel
         {
             card.IsLumaInstalling = false;
             card.NotifyAll();
+        }
+    }
+
+    /// <summary>
+    /// Applies all post-install steps after a Luma archive has been extracted to the game folder.
+    /// Called by InstallLumaAsync, DragDropHandler.ProcessDroppedLumaArchiveAsync, and the Nexus premium path.
+    /// Steps: DLSS deploy, [Luma] reshade.ini writes, ReShade install, dgVoodoo2 (conditional),
+    /// Engine.ini keys (generic Luma), LumaTaaEnabled persistence, launch args auto-set.
+    /// </summary>
+    public async Task ApplyLumaPostInstallAsync(GameCardViewModel card, LumaInstalledRecord record)
+    {
+        // Deploy RHI's newest DLSS version (Luma bundles its own — RHI manages it instead)
+        try
+        {
+            card.LumaActionMessage = "Updating DLSS...";
+            var newestDlssPath = await _dlssStreamlineService.EnsureNewestDlssCachedAsync();
+            if (newestDlssPath != null && File.Exists(newestDlssPath))
+            {
+                var targetDlssPath = Path.Combine(card.InstallPath, "nvngx_dlss.dll");
+                AuxInstallService.SentinelBackup(targetDlssPath);
+                File.Copy(newestDlssPath, targetDlssPath, overwrite: true);
+                _crashReporter.Log($"[ApplyLumaPostInstall] Deployed newest DLSS to '{targetDlssPath}'");
+            }
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[ApplyLumaPostInstall] DLSS deploy failed for '{card.GameName}' — {ex.Message}");
+        }
+
+        // Write EnableHDR=1 and DisplayMode=1 to reshade.ini [Luma] section — default On, user can disable via cog
+        AuxInstallService.SetLumaReshadeIniValue(card.InstallPath, "EnableHDR", "1");
+        AuxInstallService.SetLumaReshadeIniValue(card.InstallPath, "DisplayMode", "1");
+
+        // Now install RHI's own ReShade (respects user's channel — Stable/Nightly)
+        // Luma's bundled ReShade DLL was excluded from the zip — RHI manages ReShade.
+        card.LumaActionMessage = "Installing ReShade...";
+        await InstallReShadeAsync(card);
+
+        // ── dgVoodoo2 (DX9→DX11 translation layer — required for some legacy games) ────
+        // Must be deployed AFTER ReShade so we can confirm dxgi.dll is claimed by ReShade.
+        if (_manifest?.LumaRequiresDgVoodoo?.Contains(card.GameName, StringComparer.OrdinalIgnoreCase) == true
+            && _manifest.DgVoodooVersions?.Count > 0)
+        {
+            try
+            {
+                card.LumaActionMessage = "Installing dgVoodoo2...";
+                var dgVoodooSvc = App.Services.GetRequiredService<DgVoodooService>();
+                var versionEntry = _manifest.DgVoodooVersions.First();
+                await dgVoodooSvc.EnsureStagedAsync(versionEntry.Key, versionEntry.Value).ConfigureAwait(false);
+                var deployed = dgVoodooSvc.DeployToGame(card.InstallPath, versionEntry.Key);
+                foreach (var f in deployed)
+                    if (!record.InstalledFiles.Contains(f, StringComparer.OrdinalIgnoreCase))
+                        record.InstalledFiles.Add(f);
+                _lumaService.SaveLumaRecord(record);
+                _crashReporter.Log($"[ApplyLumaPostInstall] dgVoodoo2 v{versionEntry.Key} deployed for '{card.GameName}'");
+            }
+            catch (Exception dgEx)
+            {
+                _crashReporter.Log($"[ApplyLumaPostInstall] dgVoodoo2 deploy failed for '{card.GameName}' — {dgEx.Message}");
+            }
+        }
+
+        // ── Generic Luma post-install actions ─────────────────────────────────
+        if (card.LumaMod?.IsGenericLuma == true)
+        {
+            if (_lumaGenericEntries.TryGetValue(card.GameName, out var genericEntry)
+                && genericEntry.EngineIniKeys.Count > 0)
+            {
+                try
+                {
+                    AuxInstallService.ApplyEngineIniCustomKeys(
+                        card.InstallPath,
+                        genericEntry.EngineIniKeys,
+                        card.EngineIniProjectOverride,
+                        card.GameName,
+                        card.Source);
+                    _crashReporter.Log($"[ApplyLumaPostInstall] Wrote {genericEntry.EngineIniKeys.Count} Engine.ini key(s) for '{card.GameName}'");
+
+                    bool hasTaaKeys = genericEntry.EngineIniKeys.Any(k =>
+                        k.Key.Equals("r.DefaultFeature.AntiAliasing", StringComparison.OrdinalIgnoreCase)
+                        || k.Key.Equals("r.PostProcessAAQuality", StringComparison.OrdinalIgnoreCase));
+                    if (hasTaaKeys)
+                    {
+                        _gameNameService.LumaTaaEnabled.Add(card.GameName);
+                        SaveNameMappings();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _crashReporter.Log($"[ApplyLumaPostInstall] Engine.ini write failed for '{card.GameName}' — {ex.Message}");
+                }
+            }
+
+            if (_lumaGenericEntries.TryGetValue(card.GameName, out var launchEntry)
+                && !string.IsNullOrWhiteSpace(launchEntry.LaunchArgs))
+            {
+                var existing = _gameNameService.LaunchArgsOverrides.TryGetValue(card.GameName, out var v) ? v : "";
+                if (string.IsNullOrWhiteSpace(existing))
+                {
+                    _gameNameService.LaunchArgsOverrides[card.GameName] = launchEntry.LaunchArgs;
+                    SaveNameMappings();
+                    _crashReporter.Log($"[ApplyLumaPostInstall] Auto-set launch args '{launchEntry.LaunchArgs}' for '{card.GameName}'");
+                    RequestOverridesPanelRebuild?.Invoke(card);
+                }
+            }
+            else if (card.DetectedApis.Contains(GraphicsApiType.DirectX11)
+                     && card.DetectedApis.Contains(GraphicsApiType.DirectX12))
+            {
+                var existing = _gameNameService.LaunchArgsOverrides.TryGetValue(card.GameName, out var vd) ? vd : "";
+                if (string.IsNullOrWhiteSpace(existing))
+                {
+                    _gameNameService.LaunchArgsOverrides[card.GameName] = "-dx11";
+                    SaveNameMappings();
+                    _crashReporter.Log($"[ApplyLumaPostInstall] Auto-set -dx11 for dual-API game '{card.GameName}'");
+                    RequestOverridesPanelRebuild?.Invoke(card);
+                }
+            }
         }
     }
 

@@ -208,6 +208,10 @@ public partial class DragDropHandler
                 card.LumaRenodxCompatible = true;
             }
 
+            // Apply the same post-install steps as InstallLumaAsync:
+            // DLSS deploy, [Luma] reshade.ini writes, ReShade install, dgVoodoo2, Engine.ini keys, launch args
+            await _window.ViewModel.ApplyLumaPostInstallAsync(card, record);
+
             card.NotifyAll();
             _window.ViewModel.SaveSettingsPublic();
 
