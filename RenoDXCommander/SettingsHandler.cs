@@ -940,6 +940,9 @@ public class SettingsHandler
                 xbox_aumid    = xboxAumid,
                 epic_app_name = epicAppName,
                 pcgw_url      = card.PcgwUrl,
+                config_path       = pcgwInfo?.ConfigPath,
+                config_path_xbox  = pcgwInfo?.ConfigPathXbox,
+                engine_ini_project_override = card.EngineIniProjectOverride,
                 api_source    = pcgwInfo != null ? "pcgw+pe" : "pe",
             });
         }
