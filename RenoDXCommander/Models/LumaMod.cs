@@ -10,6 +10,8 @@ public class LumaMod
     public string? FeatureNotes { get; set; }
     /// <summary>True when this is the generic Unreal Engine Luma mod, not a named game-specific mod.</summary>
     public bool IsGenericLuma { get; set; }
+    /// <summary>Nexus Mods page URL, if the mod is hosted on Nexus (may be the only download or alongside GitHub).</summary>
+    public string? NexusUrl { get; set; }
 }
 
 /// <summary>

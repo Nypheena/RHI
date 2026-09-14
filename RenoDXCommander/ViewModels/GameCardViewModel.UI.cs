@@ -68,7 +68,7 @@ public partial class GameCardViewModel
     // ── Per-component install enabled (card install flyout) ───────────────────────
     public bool CardRdxInstallEnabled  => !IsInstalling && Mod?.SnapshotUrl != null && !IsExternalOnly && (IsRsInstalled || ExcludeFromUpdateAllReShade);
     public bool CardRsInstallEnabled   => !RsIsInstalling && !(IsREEngineGame && !IsRefInstalled && !EffectiveLumaMode && !ExcludeFromUpdateAllRef);
-    public bool CardLumaInstallEnabled => !IsLumaInstalling && LumaMod?.DownloadUrl != null && (IsRsInstalled || ExcludeFromUpdateAllReShade || LumaStatus != GameStatus.NotInstalled);
+    public bool CardLumaInstallEnabled => !IsLumaInstalling && (LumaMod?.DownloadUrl != null || LumaMod?.NexusUrl != null) && (IsRsInstalled || ExcludeFromUpdateAllReShade || LumaStatus != GameStatus.NotInstalled);
 
     private void NotifySidebarProps()
     {

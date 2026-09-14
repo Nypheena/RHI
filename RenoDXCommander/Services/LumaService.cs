@@ -83,18 +83,20 @@ public class LumaService : ILumaService
 
             var author = cells.Count > 1 ? Clean(cells[1].InnerText) : "";
 
-            // Download Link cell — extract first href
+            // Download Link cell — extract GitHub URL and/or Nexus URL
+            // Patterns: GitHub only, GitHub + Nexus (separated by · ), Nexus only
             string? downloadUrl = null;
+            string? nexusUrl = null;
             if (cells.Count > 2)
             {
                 foreach (var a in cells[2].SelectNodes(".//a") ?? Enumerable.Empty<HtmlNode>())
                 {
                     var href = a.GetAttributeValue("href", "").Trim();
-                    if (!string.IsNullOrEmpty(href) && href.StartsWith("http"))
-                    {
+                    if (string.IsNullOrEmpty(href) || !href.StartsWith("http")) continue;
+                    if (href.Contains("nexusmods.com", StringComparison.OrdinalIgnoreCase))
+                        nexusUrl = href;
+                    else if (downloadUrl == null)
                         downloadUrl = href;
-                        break;
-                    }
                 }
             }
 
@@ -150,6 +152,7 @@ public class LumaService : ILumaService
                 Name = name,
                 Author = author,
                 DownloadUrl = downloadUrl,
+                NexusUrl = nexusUrl,
                 Status = status,
                 SpecialNotes = specialNotes,
                 FeatureNotes = null, // filled in below

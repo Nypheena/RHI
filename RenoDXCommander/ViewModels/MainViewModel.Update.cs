@@ -1124,6 +1124,38 @@ public partial class MainViewModel
                 _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Nexus update check failed (rate-limited path) — {ex.Message}");
             }
 
+            // ── Nexus update check for Luma mods (rate-limited path) ─────────────
+            try
+            {
+                var lumaModsToCheck = cards
+                    .Where(c => c.LumaStatus == GameStatus.Installed
+                             && !c.IsHidden
+                             && c.LumaNexusUrl != null)
+                    .Select(c => (c.GameName, c.LumaNexusUrl!, (string?)null))
+                    .ToList();
+
+                if (lumaModsToCheck.Count > 0)
+                {
+                    _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Checking {lumaModsToCheck.Count} Luma Nexus mod(s) for updates (rate-limited path)");
+                    var lumaUpdated = await _nexusUpdateService.CheckForUpdatesAsync(lumaModsToCheck).ConfigureAwait(false);
+                    if (lumaUpdated.Count > 0)
+                    {
+                        DispatcherQueue?.TryEnqueue(() =>
+                        {
+                            foreach (var card in cards.Where(c => lumaUpdated.Contains(c.GameName)))
+                            {
+                                if (card.LumaStatus == GameStatus.Installed)
+                                    card.LumaStatus = GameStatus.UpdateAvailable;
+                            }
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Luma Nexus update check failed (rate-limited path) — {ex.Message}");
+            }
+
             // Record successful check time even if rate-limited, so we don't hammer the API again immediately
             _settingsViewModel.LastUpdateCheckUtc = DateTime.UtcNow.ToString("o");
             SaveSettingsPublic();
@@ -1396,7 +1428,37 @@ public partial class MainViewModel
             _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Nexus update check failed — {ex.Message}");
         }
 
-        // ── Emulator update check (check each bundled addon for size changes) ──
+        // ── Nexus Mods update check for Luma mods ─────────────────────────────
+        try
+        {
+            var lumaModsToCheck = cards
+                .Where(c => c.LumaStatus == GameStatus.Installed
+                         && !c.IsHidden
+                         && c.LumaNexusUrl != null)
+                .Select(c => (c.GameName, c.LumaNexusUrl!, (string?)null))
+                .ToList();
+
+            if (lumaModsToCheck.Count > 0)
+            {
+                _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Checking {lumaModsToCheck.Count} Luma Nexus mod(s) for updates");
+                var lumaUpdated = await _nexusUpdateService.CheckForUpdatesAsync(lumaModsToCheck).ConfigureAwait(false);
+                if (lumaUpdated.Count > 0)
+                {
+                    DispatcherQueue?.TryEnqueue(() =>
+                    {
+                        foreach (var card in cards.Where(c => lumaUpdated.Contains(c.GameName)))
+                        {
+                            if (card.LumaStatus == GameStatus.Installed)
+                                card.LumaStatus = GameStatus.UpdateAvailable;
+                        }
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[MainViewModel.CheckForUpdatesAsync] Luma Nexus update check failed — {ex.Message}");
+        }
         try
         {
             var emuCards = cards.Where(c => c.IsEmulator && c.Status == GameStatus.Installed && c.EmulatorAddonNames?.Count > 0).ToList();

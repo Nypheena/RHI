@@ -810,6 +810,23 @@ public partial class MainViewModel
     {
         if (card?.LumaMod == null || string.IsNullOrEmpty(card.InstallPath)) return;
 
+        var mod = card.LumaMod;
+
+        // Nexus-only mod (no GitHub download URL) — either open browser or use premium CDN
+        if (mod.DownloadUrl == null && mod.NexusUrl != null)
+        {
+            var nexusDl = App.Services.GetRequiredService<NexusDownloadService>();
+            if (!FeatureFlags.NexusMods || !nexusDl.IsApiKeyConfigured || !nexusDl.IsPremium)
+            {
+                // Free user — open Nexus page in browser
+                _crashReporter.Log($"[InstallLumaAsync] Nexus-only mod '{mod.Name}' — opening browser for free user");
+                DispatcherQueue?.TryEnqueue(() =>
+                    _ = Windows.System.Launcher.LaunchUriAsync(new Uri(mod.NexusUrl)));
+                return;
+            }
+            // Premium user — fall through to the main install flow with nexusPremiumPath set below
+        }
+
         // Check for manifest-driven install warning (skip during Update All)
         if (!skipWarning && !await CheckInstallWarningAsync(card.GameName, "luma")) return;
 
@@ -817,24 +834,91 @@ public partial class MainViewModel
         card.LumaActionMessage = "Installing Luma...";
         try
         {
+            LumaInstalledRecord record;
             var selectedPacks = ResolveShaderSelection(card.GameName, card.ShaderModeOverride, card.Source ?? "");
-            var record = await _lumaService.InstallAsync(
-                card.LumaMod,
-                card.InstallPath,
-                selectedPacks,
-                BuildScreenshotSavePath(card.GameName),
-                _settingsViewModel.OverlayHotkey,
-                _settingsViewModel.ScreenshotHotkey,
-                card.GameName,
-                new Progress<(string msg, double pct)>(p =>
+
+            // ── Nexus premium path — download from CDN and install from archive ──
+            if (mod.DownloadUrl == null && mod.NexusUrl != null && FeatureFlags.NexusMods)
+            {
+                var nexusDl = App.Services.GetRequiredService<NexusDownloadService>();
+                var parsed = NexusUpdateService.ParseNexusUrl(mod.NexusUrl);
+                if (parsed == null)
                 {
-                    DispatcherQueue?.TryEnqueue(() =>
+                    card.LumaActionMessage = "❌ Invalid Nexus URL.";
+                    return;
+                }
+
+                card.LumaActionMessage = "Fetching mod info...";
+                var latestFile = await nexusDl.GetLatestMainFileAsync(parsed.Value.Domain, parsed.Value.ModId).ConfigureAwait(false);
+                if (latestFile == null)
+                {
+                    _crashReporter.Log($"[InstallLumaAsync] Nexus — no MAIN file for '{card.GameName}'");
+                    DispatcherQueue?.TryEnqueue(() => card.LumaActionMessage = "No downloadable file found on Nexus.");
+                    return;
+                }
+
+                var uri = await nexusDl.GetDownloadUriAsync(parsed.Value.Domain, parsed.Value.ModId, latestFile.FileId).ConfigureAwait(false);
+                if (uri == null)
+                {
+                    _crashReporter.Log($"[InstallLumaAsync] Nexus — could not resolve CDN URI for '{card.GameName}'");
+                    DispatcherQueue?.TryEnqueue(() => card.LumaActionMessage = "Could not resolve Nexus download link.");
+                    return;
+                }
+
+                var progress = new Progress<(string msg, double pct)>(p =>
+                    DispatcherQueue?.TryEnqueue(() => { card.LumaActionMessage = p.msg; card.LumaProgress = p.pct; }));
+
+                var tempPath = await nexusDl.DownloadToTempAsync(uri, progress).ConfigureAwait(false);
+                if (tempPath == null)
+                {
+                    DispatcherQueue?.TryEnqueue(() => card.LumaActionMessage = "Download failed.");
+                    return;
+                }
+
+                try
+                {
+                    _crashReporter.Log($"[InstallLumaAsync] Nexus premium — installing from archive '{tempPath}' for '{card.GameName}'");
+                    record = await _lumaService.InstallFromArchiveAsync(
+                        tempPath,
+                        card.InstallPath,
+                        card.Is32Bit,
+                        selectedPacks,
+                        BuildScreenshotSavePath(card.GameName),
+                        _settingsViewModel.OverlayHotkey,
+                        _settingsViewModel.ScreenshotHotkey,
+                        card.GameName,
+                        null,
+                        card.Source).ConfigureAwait(false);
+                    record.NexusFileId = latestFile.FileId;
+                    _lumaService.SaveLumaRecord(record);
+                    _nexusUpdateService.ResetBaseline(card.GameName);
+                }
+                finally
+                {
+                    try { File.Delete(tempPath); } catch { }
+                }
+            }
+            else
+            {
+                // ── Standard GitHub path ──────────────────────────────────────────
+                record = await _lumaService.InstallAsync(
+                    mod,
+                    card.InstallPath,
+                    selectedPacks,
+                    BuildScreenshotSavePath(card.GameName),
+                    _settingsViewModel.OverlayHotkey,
+                    _settingsViewModel.ScreenshotHotkey,
+                    card.GameName,
+                    new Progress<(string msg, double pct)>(p =>
                     {
-                        card.LumaActionMessage = p.msg;
-                        card.LumaProgress = p.pct;
-                    });
-                }),
-                card.Source);
+                        DispatcherQueue?.TryEnqueue(() =>
+                        {
+                            card.LumaActionMessage = p.msg;
+                            card.LumaProgress = p.pct;
+                        });
+                    }),
+                    card.Source);
+            }
 
             card.LumaRecord = record;
             card.LumaStatus = GameStatus.Installed;
