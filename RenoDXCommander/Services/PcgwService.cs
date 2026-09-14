@@ -768,7 +768,7 @@ public class PcgwService : IPcgwService
     /// <summary>
     /// Normalises a PCGW config path to a Windows-style path suitable for passing to
     /// ResolveEngineIniDir as a projectNameOverride. Converts forward slashes to backslashes,
-    /// trims trailing separators. Returns null if the path doesn't look like a Windows path.
+    /// trims trailing separators. Returns null if the path doesn't look like a Windows config directory.
     /// </summary>
     private static string? NormaliseConfigPath(string raw)
     {
@@ -783,9 +783,23 @@ public class PcgwService : IPcgwService
         // Normalise to backslashes and strip trailing separator
         var normalised = raw.Replace('/', '\\').TrimEnd('\\');
 
-        // Strip any footnote markers like "[Note 2]" that PCGW appends
+        // Strip footnote markers like "[Note 2]" that PCGW appends
         normalised = System.Text.RegularExpressions.Regex.Replace(normalised, @"\s*\[Note\s*\d+\].*$", "",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase).TrimEnd('\\');
+
+        // Strip placeholder segments like <user-id> — path can't be resolved
+        if (normalised.Contains('<') && normalised.Contains('>'))
+            return null;
+
+        // Reject paths that point to a specific file (have a file extension in the last segment)
+        var lastSegment = normalised.Split('\\').LastOrDefault() ?? "";
+        if (System.Text.RegularExpressions.Regex.IsMatch(lastSegment, @"\.[a-zA-Z0-9]{2,5}$"))
+            return null;
+
+        // Reject paths that are clearly save data, not config
+        if (normalised.Contains("SaveGames", StringComparison.OrdinalIgnoreCase) ||
+            normalised.Contains("\\Saves\\", StringComparison.OrdinalIgnoreCase))
+            return null;
 
         // Reject obviously non-Windows paths (Steam compat, Linux, pfx)
         if (normalised.Contains("steamapps", StringComparison.OrdinalIgnoreCase) ||
