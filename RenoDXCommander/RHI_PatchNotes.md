@@ -36,6 +36,7 @@
 - Fixed Engine.ini being written to the wrong AppData folder for **Solasta 2** (was using the `Brimstone` exe subfolder name instead of the game name).
 - Added **ReShade Screenshot Discord Fix** to the addon picker — strips the cICP colour chunk from HDR screenshots so Discord previews them correctly instead of showing washed-out colours.
 - Kingdom Come: Deliverance II added to the 64-bit override list.
+- Added **Ultra ReShade by Ultra+** to the shader picker — a single-shader "poor man's DLSS5" effect with bloom, contrast, haze/dehaze and saturation.
 
 ---
 

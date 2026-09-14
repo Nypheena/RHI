@@ -1370,6 +1370,13 @@
       "description": "Lightweight sharpening (TinySharpen), clarity, and chromatic aberration shaders",
       "category": "Extra"
     },
+    "UltraReShade": {
+      "displayName": "Ultra ReShade by Ultra+",
+      "kind": "DirectUrl",
+      "url": "https://gitlab.com/ultra-plus/ultra-reshade/-/archive/main/ultra-reshade-main.zip",
+      "description": "\"Poor man's DLSS5\" — single-shader post-processing with bloom, contrast balancing, haze/dehaze, and saturation. Mimics the look of DLSS5 without requiring it. Highly tunable, works well for virtual photography.",
+      "category": "Recommended"
+    },
     "CubeLUT3Ddith": {
       "displayName": "CubeLUT3Ddith by aron7awol",
       "kind": "DirectUrl",
