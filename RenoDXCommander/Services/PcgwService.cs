@@ -817,10 +817,15 @@ public class PcgwService : IPcgwService
         if (normalised.Contains('<') && normalised.Contains('>'))
             return null;
 
-        // Reject paths that point to a specific file (have a file extension in the last segment)
+        // If the last segment is a filename (has a file extension), strip it to get the folder
         var lastSegment = normalised.Split('\\').LastOrDefault() ?? "";
         if (System.Text.RegularExpressions.Regex.IsMatch(lastSegment, @"\.[a-zA-Z0-9]{2,5}$"))
-            return null;
+        {
+            // Strip the filename — keep the folder
+            var folderPath = normalised.Substring(0, normalised.Length - lastSegment.Length).TrimEnd('\\');
+            if (string.IsNullOrWhiteSpace(folderPath)) return null;
+            normalised = folderPath;
+        }
 
         // Reject paths that are clearly save data, not config
         if (normalised.Contains("SaveGames", StringComparison.OrdinalIgnoreCase) ||
