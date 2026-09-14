@@ -633,63 +633,89 @@ public class PcgwService : IPcgwService
             var doc = new HtmlAgilityPack.HtmlDocument();
             doc.LoadHtml(html);
 
-            // PCGW renders config location in a table with id="table-gamedata-config"
-            // Each row: <tr><th scope="row">System</th><td>Location</td></tr>
-            // We want the Windows row.
-            var configTable = doc.DocumentNode.SelectSingleNode("//table[@id='table-gamedata-config']");
+            // PCGW renders config location in a table with class containing "table-gamedata"
+            // Each row: <tr class="table-gamedata-body-row"><th scope="row">Windows</th><td class="table-gamedata-body-location">...</td></tr>
+            var configTable = doc.DocumentNode.SelectSingleNode("//table[@id='table-gamedata-config']")
+                           ?? doc.DocumentNode.SelectSingleNode("//table[.//th[contains(@class,'table-gamedata-head-system')]]")
+                           ?? doc.DocumentNode.SelectSingleNode("//table[.//td[contains(@class,'table-gamedata-body-location')]]");
 
             if (configTable == null)
             {
-                // Fallback: find any table near the "Configuration file(s)" heading
-                // by scanning h2/h3 headings and taking the next table
-                var headings = doc.DocumentNode.SelectNodes("//h2|//h3|//h4|//span[@class='mw-headline']");
-                if (headings != null)
+                // Fallback: find the table immediately following the "Configuration file(s)" heading text.
+                // Walk all elements looking for a heading-like element containing that text, then
+                // take the next sibling table.
+                foreach (var node in doc.DocumentNode.Descendants())
                 {
-                    foreach (var heading in headings)
+                    if (node.NodeType != HtmlAgilityPack.HtmlNodeType.Element) continue;
+                    if (!node.InnerText.Contains("Configuration file", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    // Only consider elements that look like headings or caption-like cells
+                    var tag = node.Name.ToLowerInvariant();
+                    if (tag != "h2" && tag != "h3" && tag != "h4" && tag != "caption" && tag != "th") continue;
+
+                    // Walk siblings/parent siblings to find next table
+                    var container = node.Name == "th" ? node.ParentNode?.ParentNode?.ParentNode : node;
+                    if (container == null) continue;
+
+                    var sib = container.NextSibling;
+                    while (sib != null)
                     {
-                        if (!heading.InnerText.Contains("Configuration file", StringComparison.OrdinalIgnoreCase))
-                            continue;
-                        // Walk siblings forward to find the next table
-                        var sibling = heading.ParentNode?.NextSibling;
-                        while (sibling != null)
-                        {
-                            if (sibling.Name.Equals("table", StringComparison.OrdinalIgnoreCase))
-                            { configTable = sibling; break; }
-                            // Stop if we hit another heading section
-                            if ((sibling.Name is "h2" or "h3" or "h4") ||
-                                sibling.SelectSingleNode("./span[@class='mw-headline']") != null)
-                                break;
-                            sibling = sibling.NextSibling;
-                        }
-                        if (configTable != null) break;
+                        if (sib.Name.Equals("table", StringComparison.OrdinalIgnoreCase))
+                        { configTable = sib; break; }
+                        if (sib.Name is "h2" or "h3" or "h4") break;
+                        sib = sib.NextSibling;
                     }
+                    if (configTable != null) break;
                 }
             }
 
             if (configTable != null)
             {
-                var rows = configTable.SelectNodes(".//tr");
+                var rows = configTable.SelectNodes(".//tr[@class and contains(@class,'table-gamedata-body-row')]");
+                rows ??= configTable.SelectNodes(".//tr");
                 if (rows != null)
                 {
                     foreach (var row in rows)
                     {
-                        // PCGW config table rows use either th[@scope='row'] or td for the system name
-                        var systemNode = row.SelectSingleNode("th[@scope='row']") ?? row.SelectSingleNode("td[1]");
-                        var locationNode = row.SelectSingleNode("th[@scope='row'] ~ td") ?? row.SelectSingleNode("td[2]");
-                        if (systemNode == null || locationNode == null) continue;
+                        var systemTh = row.SelectSingleNode(".//th[@scope='row']");
+                        if (systemTh == null) continue;
 
-                        var system = HtmlAgilityPack.HtmlEntity.DeEntitize(systemNode.InnerText).Trim();
-
-                        // Only the Windows row — skip Steam Play, macOS, Linux, Xbox etc.
-                        // Use Contains rather than Equals — system cell may have icon text appended
+                        var system = HtmlAgilityPack.HtmlEntity.DeEntitize(systemTh.InnerText).Trim();
                         if (!system.Contains("Windows", StringComparison.OrdinalIgnoreCase)
                             || system.Contains("Steam Play", StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        var rawPath = HtmlAgilityPack.HtmlEntity.DeEntitize(locationNode.InnerText).Trim();
+                        // Location td — prefer the monospace span text which holds the actual path
+                        var locationTd = row.SelectSingleNode(".//td[contains(@class,'table-gamedata-body-location')]")
+                                      ?? row.SelectSingleNode(".//td");
+                        if (locationTd == null) continue;
+
+                        // Try the monospace span first (most reliable)
+                        var monoSpan = locationTd.SelectSingleNode(".//span[contains(@class,'monospace')]");
+                        var rawPath = monoSpan != null
+                            ? HtmlAgilityPack.HtmlEntity.DeEntitize(monoSpan.InnerText).Trim()
+                            : HtmlAgilityPack.HtmlEntity.DeEntitize(locationTd.InnerText).Trim();
+
+                        // InnerText of <abbr> nodes gives abbr title — strip those by getting
+                        // text nodes only when the path looks wrong (no % sign)
+                        if (!rawPath.Contains('%') && locationTd != null)
+                        {
+                            // Walk text nodes directly to get the raw path without abbr expansions
+                            var textNodes = locationTd.SelectNodes(".//text()");
+                            if (textNodes != null)
+                            {
+                                rawPath = string.Concat(textNodes
+                                    .Select(n => HtmlAgilityPack.HtmlEntity.DeEntitize(n.InnerText)))
+                                    .Trim();
+                            }
+                        }
+
                         var normalised = NormaliseConfigPath(rawPath);
                         if (normalised != null)
+                        {
+                            CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] Found via table: '{normalised}'");
                             return normalised;
+                        }
                     }
                 }
             }
