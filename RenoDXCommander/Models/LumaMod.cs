@@ -18,6 +18,13 @@ public class LumaMod
     /// is a DX9 game that needs D3D9.dll + dgVoodoo.conf deployed alongside Luma.
     /// </summary>
     public bool RequiresDgVoodoo { get; set; }
+
+    /// <summary>
+    /// Specific dgVoodoo2 version recommended by the Luma wiki for this mod (e.g. "2.87.3").
+    /// When set and present in the manifest dgVoodooVersions dict, this version is preferred
+    /// over the default (latest). Null = use the default.
+    /// </summary>
+    public string? DgVoodooVersion { get; set; }
 }
 
 /// <summary>

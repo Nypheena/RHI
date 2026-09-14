@@ -157,6 +157,7 @@ public class LumaService : ILumaService
                 SpecialNotes = specialNotes,
                 FeatureNotes = null, // filled in below
                 RequiresDgVoodoo = specialNotes.Contains("dgVoodoo", StringComparison.OrdinalIgnoreCase),
+                DgVoodooVersion  = ExtractDgVoodooVersion(specialNotes),
             });
         }
 
@@ -964,6 +965,22 @@ public class LumaService : ILumaService
     }
 
     private static string Clean(string s) => System.Text.RegularExpressions.Regex.Replace(HtmlEntity.DeEntitize(s ?? "").Trim(), @"\s+", " ");
+
+    /// <summary>
+    /// Extracts the recommended dgVoodoo2 version from Luma wiki Special Notes text.
+    /// Handles patterns like "dgVoodoo2 v2.87.3", "dgVoodoo2 v2.81.3 or dgVoodoo2 v2.87.3".
+    /// Returns the last (highest) version found, or null if none.
+    /// </summary>
+    private static string? ExtractDgVoodooVersion(string notes)
+    {
+        if (string.IsNullOrEmpty(notes)) return null;
+        var matches = System.Text.RegularExpressions.Regex.Matches(
+            notes, @"dgVoodoo2?\s+v?(\d+\.\d+(?:\.\d+)?)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (matches.Count == 0) return null;
+        // Take the last version mentioned — wiki pattern is "v2.81.3 or v2.87.3", last is recommended
+        return matches[matches.Count - 1].Groups[1].Value;
+    }
 
     // ── Update detection ──────────────────────────────────────────────────────────
 

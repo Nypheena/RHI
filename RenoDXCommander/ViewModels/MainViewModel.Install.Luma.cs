@@ -1003,7 +1003,23 @@ public partial class MainViewModel
             {
                 card.LumaActionMessage = "Installing dgVoodoo2...";
                 var dgVoodooSvc = App.Services.GetRequiredService<DgVoodooService>();
-                var versionEntry = _manifest.DgVoodooVersions.First();
+
+                // Prefer the version recommended by the wiki for this specific mod.
+                // Fall back to the first (latest) entry if the recommended version isn't available.
+                var preferredVersion = card.LumaMod?.DgVoodooVersion;
+                KeyValuePair<string, string> versionEntry;
+                if (!string.IsNullOrEmpty(preferredVersion)
+                    && _manifest.DgVoodooVersions.TryGetValue(preferredVersion, out var preferredUrl))
+                {
+                    versionEntry = new KeyValuePair<string, string>(preferredVersion, preferredUrl);
+                    _crashReporter.Log($"[ApplyLumaPostInstall] Using wiki-recommended dgVoodoo2 v{preferredVersion} for '{card.GameName}'");
+                }
+                else
+                {
+                    versionEntry = _manifest.DgVoodooVersions.First();
+                    if (!string.IsNullOrEmpty(preferredVersion))
+                        _crashReporter.Log($"[ApplyLumaPostInstall] Wiki recommended v{preferredVersion} not in manifest — using default v{versionEntry.Key} for '{card.GameName}'");
+                }
                 await dgVoodooSvc.EnsureStagedAsync(versionEntry.Key, versionEntry.Value).ConfigureAwait(false);
                 var deployed = dgVoodooSvc.DeployToGame(card.InstallPath, versionEntry.Key);
                 foreach (var f in deployed)
