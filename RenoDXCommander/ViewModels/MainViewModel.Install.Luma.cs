@@ -993,8 +993,11 @@ public partial class MainViewModel
 
         // ── dgVoodoo2 (DX9→DX11 translation layer — required for some legacy games) ────
         // Must be deployed AFTER ReShade so we can confirm dxgi.dll is claimed by ReShade.
-        if (_manifest?.LumaRequiresDgVoodoo?.Contains(card.GameName, StringComparer.OrdinalIgnoreCase) == true
-            && _manifest.DgVoodooVersions?.Count > 0)
+        // Auto-detected from the Luma wiki SpecialNotes column (RequiresDgVoodoo flag),
+        // with the manifest list as a fallback/override for cases the scraper misses.
+        bool needsDgVoodoo = card.LumaMod?.RequiresDgVoodoo == true
+            || _manifest?.LumaRequiresDgVoodoo?.Contains(card.GameName, StringComparer.OrdinalIgnoreCase) == true;
+        if (needsDgVoodoo && _manifest?.DgVoodooVersions?.Count > 0)
         {
             try
             {

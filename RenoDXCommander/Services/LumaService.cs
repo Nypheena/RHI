@@ -156,6 +156,7 @@ public class LumaService : ILumaService
                 Status = status,
                 SpecialNotes = specialNotes,
                 FeatureNotes = null, // filled in below
+                RequiresDgVoodoo = specialNotes.Contains("dgVoodoo", StringComparison.OrdinalIgnoreCase),
             });
         }
 

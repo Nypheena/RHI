@@ -12,6 +12,12 @@ public class LumaMod
     public bool IsGenericLuma { get; set; }
     /// <summary>Nexus Mods page URL, if the mod is hosted on Nexus (may be the only download or alongside GitHub).</summary>
     public string? NexusUrl { get; set; }
+
+    /// <summary>
+    /// True when the Luma wiki's Special Notes column mentions dgVoodoo2 — indicates this
+    /// is a DX9 game that needs D3D9.dll + dgVoodoo.conf deployed alongside Luma.
+    /// </summary>
+    public bool RequiresDgVoodoo { get; set; }
 }
 
 /// <summary>
