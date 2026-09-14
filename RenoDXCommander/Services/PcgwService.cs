@@ -397,7 +397,7 @@ public class PcgwService : IPcgwService
         "RHI", "pcgw_api_cache.json");
 
     /// <summary>Bump when ParseApiSection or ParseConfigFilesSection logic changes to force a full rescrape.</summary>
-    private const int ApiCacheVersion = 13;
+    private const int ApiCacheVersion = 14;
     private static readonly string ApiCacheVersionPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "pcgw_api_cache_v.txt");
@@ -830,6 +830,15 @@ public class PcgwService : IPcgwService
         // Reject paths that are clearly save data, not config
         if (normalised.Contains("SaveGames", StringComparison.OrdinalIgnoreCase) ||
             normalised.Contains("\\Saves\\", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // Reject UWP package storage paths — these are save/sync data, not config folders
+        if (normalised.Contains("\\Packages\\", StringComparison.OrdinalIgnoreCase) ||
+            normalised.Contains("\\wgs",         StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // Reject paths with parent-directory traversal (..) — can't be safely expanded
+        if (normalised.Contains(".."))
             return null;
 
         // Reject obviously non-Windows paths (Steam compat, Linux, pfx)
