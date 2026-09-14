@@ -818,10 +818,27 @@ public partial class MainViewModel
             var nexusDl = App.Services.GetRequiredService<NexusDownloadService>();
             if (!FeatureFlags.NexusMods || !nexusDl.IsApiKeyConfigured || !nexusDl.IsPremium)
             {
-                // Free user — open Nexus page in browser
-                _crashReporter.Log($"[InstallLumaAsync] Nexus-only mod '{mod.Name}' — opening browser for free user");
+                // Free user — resolve the latest file ID and open directly to the download page
+                // (same as ExternalLink_Click does for RenoDX Nexus mods)
+                _crashReporter.Log($"[InstallLumaAsync] Nexus-only mod '{mod.Name}' — resolving file ID for browser");
+                var targetUrl = mod.NexusUrl;
+                var parsed = NexusUpdateService.ParseNexusUrl(mod.NexusUrl);
+                if (parsed.HasValue && FeatureFlags.NexusMods)
+                {
+                    try
+                    {
+                        var latestFile = await nexusDl.GetLatestMainFileAsync(parsed.Value.Domain, parsed.Value.ModId).ConfigureAwait(false);
+                        if (latestFile != null)
+                            targetUrl = $"https://www.nexusmods.com/{parsed.Value.Domain}/mods/{parsed.Value.ModId}?tab=files&file_id={latestFile.FileId}&nmm=1";
+                    }
+                    catch { /* fall through to base URL */ }
+                }
+                else if (!string.IsNullOrEmpty(targetUrl) && !targetUrl.Contains("?tab=", StringComparison.OrdinalIgnoreCase))
+                {
+                    targetUrl = targetUrl.TrimEnd('/') + "?tab=files";
+                }
                 DispatcherQueue?.TryEnqueue(() =>
-                    _ = Windows.System.Launcher.LaunchUriAsync(new Uri(mod.NexusUrl)));
+                    _ = Windows.System.Launcher.LaunchUriAsync(new Uri(targetUrl)));
                 return;
             }
             // Premium user — fall through to the main install flow with nexusPremiumPath set below
