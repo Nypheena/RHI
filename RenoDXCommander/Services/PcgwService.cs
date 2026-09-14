@@ -397,7 +397,7 @@ public class PcgwService : IPcgwService
         "RHI", "pcgw_api_cache.json");
 
     /// <summary>Bump when ParseApiSection or ParseConfigFilesSection logic changes to force a full rescrape.</summary>
-    private const int ApiCacheVersion = 11;
+    private const int ApiCacheVersion = 12;
     private static readonly string ApiCacheVersionPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "RHI", "pcgw_api_cache_v.txt");
@@ -705,19 +705,29 @@ public class PcgwService : IPcgwService
                                       ?? row.SelectSingleNode(".//td");
                         if (locationTd == null) continue;
 
-                        var monoSpan = locationTd.SelectSingleNode(".//span[contains(@class,'monospace')]");
-                        var rawPath = monoSpan != null
-                            ? HtmlAgilityPack.HtmlEntity.DeEntitize(monoSpan.InnerText).Trim()
-                            : HtmlAgilityPack.HtmlEntity.DeEntitize(locationTd.InnerText).Trim();
-
-                        if (!rawPath.Contains('%'))
+                        // Some cells have multiple monospace spans (e.g. <user-id> placeholder first,
+                        // then the real path second). Try all spans and take the first valid one.
+                        string? normalised = null;
+                        var monoSpans = locationTd.SelectNodes(".//span[contains(@class,'monospace')]");
+                        if (monoSpans != null)
                         {
-                            var textNodes = locationTd.SelectNodes(".//text()");
-                            if (textNodes != null)
-                                rawPath = string.Concat(textNodes.Select(n => HtmlAgilityPack.HtmlEntity.DeEntitize(n.InnerText))).Trim();
+                            foreach (var span in monoSpans)
+                            {
+                                var candidate = NormaliseConfigPath(HtmlAgilityPack.HtmlEntity.DeEntitize(span.InnerText).Trim());
+                                if (candidate != null) { normalised = candidate; break; }
+                            }
                         }
 
-                        var normalised = NormaliseConfigPath(rawPath);
+                        // Fallback: text nodes of the whole td
+                        if (normalised == null)
+                        {
+                            var textNodes = locationTd.SelectNodes(".//text()");
+                            var rawPath = textNodes != null
+                                ? string.Concat(textNodes.Select(n => HtmlAgilityPack.HtmlEntity.DeEntitize(n.InnerText))).Trim()
+                                : HtmlAgilityPack.HtmlEntity.DeEntitize(locationTd.InnerText).Trim();
+                            normalised = NormaliseConfigPath(rawPath);
+                        }
+
                         if (normalised == null) continue;
 
                         if (isXbox)
