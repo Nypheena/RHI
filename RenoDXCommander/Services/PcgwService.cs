@@ -673,17 +673,20 @@ public class PcgwService : IPcgwService
                 {
                     foreach (var row in rows)
                     {
-                        var th = row.SelectSingleNode("th[@scope='row']");
-                        var td = row.SelectSingleNode("td");
-                        if (th == null || td == null) continue;
+                        // PCGW config table rows use either th[@scope='row'] or td for the system name
+                        var systemNode = row.SelectSingleNode("th[@scope='row']") ?? row.SelectSingleNode("td[1]");
+                        var locationNode = row.SelectSingleNode("th[@scope='row'] ~ td") ?? row.SelectSingleNode("td[2]");
+                        if (systemNode == null || locationNode == null) continue;
 
-                        var system = HtmlAgilityPack.HtmlEntity.DeEntitize(th.InnerText).Trim();
+                        var system = HtmlAgilityPack.HtmlEntity.DeEntitize(systemNode.InnerText).Trim();
 
                         // Only the Windows row — skip Steam Play, macOS, Linux, Xbox etc.
-                        if (!system.Equals("Windows", StringComparison.OrdinalIgnoreCase))
+                        // Use Contains rather than Equals — system cell may have icon text appended
+                        if (!system.Contains("Windows", StringComparison.OrdinalIgnoreCase)
+                            || system.Contains("Steam Play", StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        var rawPath = HtmlAgilityPack.HtmlEntity.DeEntitize(td.InnerText).Trim();
+                        var rawPath = HtmlAgilityPack.HtmlEntity.DeEntitize(locationNode.InnerText).Trim();
                         var normalised = NormaliseConfigPath(rawPath);
                         if (normalised != null)
                             return normalised;
@@ -709,7 +712,14 @@ public class PcgwService : IPcgwService
                     {
                         var normalised = NormaliseConfigPath(match.Value);
                         if (normalised != null)
+                        {
+                            CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] Found via text fallback: '{normalised}'");
                             return normalised;
+                        }
+                    }
+                    else
+                    {
+                        CrashReporter.Log($"[PcgwService.ParseConfigFilesSection] No env-var path near 'Configuration file' in text fallback. Window: '{window.Substring(0, Math.Min(200, window.Length))}'");
                     }
                 }
             }
