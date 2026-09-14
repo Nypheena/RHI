@@ -35,6 +35,12 @@ public partial class MainViewModel
     public async Task InstallReShadeAsync(GameCardViewModel? card)
     {
         if (card == null) return;
+        await InstallReShadeInternalAsync(card, null);
+    }
+
+    internal async Task InstallReShadeInternalAsync(GameCardViewModel? card, string? forceFilename)
+    {
+        if (card == null) return;
 
         if (string.IsNullOrEmpty(card.InstallPath) || !Directory.Exists(card.InstallPath))
         {
@@ -117,14 +123,16 @@ public partial class MainViewModel
             if (selectedPacks != null)
                 await _shaderPackService.EnsurePacksAsync(selectedPacks);
 
-            var rsFilenameOverride = card.DllOverrideEnabled
-                    ? (GetDllOverride(card.GameName)?.ReShadeFileName)
-                    : (GetManifestDllNames(card.GameName)?.ReShade is { Length: > 0 } mRs
-                        ? mRs
-                        : ResolveAutoReShadeFilename(card.DetectedApis));
+            var rsFilenameOverride = forceFilename
+                    ?? (card.DllOverrideEnabled
+                        ? (GetDllOverride(card.GameName)?.ReShadeFileName)
+                        : (GetManifestDllNames(card.GameName)?.ReShade is { Length: > 0 } mRs
+                            ? mRs
+                            : ResolveAutoReShadeFilename(card.DetectedApis)));
             var effectiveChannel = card.UseNormalReShade ? "(Normal/NoAddons)" : ResolveReShadeChannel(card.GameName, card.Source ?? "");
-            var filenameSource = card.DllOverrideEnabled ? "UserDllOverride"
-                : (GetManifestDllNames(card.GameName)?.ReShade is { Length: > 0 } ? "ManifestDllOverride" : "AutoDetect");
+            var filenameSource = forceFilename != null ? "DgVoodoo2Override"
+                : (card.DllOverrideEnabled ? "UserDllOverride"
+                : (GetManifestDllNames(card.GameName)?.ReShade is { Length: > 0 } ? "ManifestDllOverride" : "AutoDetect"));
             _crashReporter.Log($"[InstallReShadeAsync] {card.GameName}: " +
                 $"channel={effectiveChannel}, useNormalReShade={card.UseNormalReShade}, " +
                 $"DllOverrideEnabled={card.DllOverrideEnabled}, filenameSource={filenameSource}, " +
@@ -986,17 +994,21 @@ public partial class MainViewModel
         AuxInstallService.SetLumaReshadeIniValue(card.InstallPath, "EnableHDR", "1");
         AuxInstallService.SetLumaReshadeIniValue(card.InstallPath, "DisplayMode", "1");
 
+        // Determine dgVoodoo2 need up-front so we can pass the correct ReShade filename
+        bool needsDgVoodoo = card.LumaMod?.RequiresDgVoodoo == true
+            || _manifest?.LumaRequiresDgVoodoo?.Contains(card.GameName, StringComparer.OrdinalIgnoreCase) == true;
+
         // Now install RHI's own ReShade (respects user's channel — Stable/Nightly)
         // Luma's bundled ReShade DLL was excluded from the zip — RHI manages ReShade.
+        // When dgVoodoo2 is being deployed: force ReShade to dxgi.dll so it hooks dgVoodoo's
+        // DX11 output rather than competing with dgVoodoo2 for the d3d9.dll slot.
         card.LumaActionMessage = "Installing ReShade...";
-        await InstallReShadeAsync(card);
+        await InstallReShadeInternalAsync(card, needsDgVoodoo ? "dxgi.dll" : null);
 
         // ── dgVoodoo2 (DX9→DX11 translation layer — required for some legacy games) ────
         // Must be deployed AFTER ReShade so we can confirm dxgi.dll is claimed by ReShade.
         // Auto-detected from the Luma wiki SpecialNotes column (RequiresDgVoodoo flag),
         // with the manifest list as a fallback/override for cases the scraper misses.
-        bool needsDgVoodoo = card.LumaMod?.RequiresDgVoodoo == true
-            || _manifest?.LumaRequiresDgVoodoo?.Contains(card.GameName, StringComparer.OrdinalIgnoreCase) == true;
         if (needsDgVoodoo && _manifest?.DgVoodooVersions?.Count > 0)
         {
             try
