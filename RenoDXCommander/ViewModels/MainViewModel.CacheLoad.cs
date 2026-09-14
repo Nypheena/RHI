@@ -846,11 +846,13 @@ public partial class MainViewModel
                 {
                     bool isXboxCard = string.Equals(game.Source, "Xbox", StringComparison.OrdinalIgnoreCase)
                                    || string.Equals(game.Source, "Game Pass", StringComparison.OrdinalIgnoreCase);
-                    var chosenPath = isXboxCard
-                        ? (pcgwInfo?.ConfigPathXbox ?? pcgwInfo?.ConfigPath)
-                        : pcgwInfo?.ConfigPath;
-                    if (chosenPath != null)
-                        newCard.EngineIniProjectOverride = chosenPath;
+                    // Xbox: only apply when PCGW has an explicit Microsoft Store path
+                    if (!isXboxCard || pcgwInfo?.ConfigPathXbox != null)
+                    {
+                        var chosenPath = isXboxCard ? pcgwInfo?.ConfigPathXbox : pcgwInfo?.ConfigPath;
+                        if (chosenPath != null)
+                            newCard.EngineIniProjectOverride = chosenPath;
+                    }
                 }
             }
 

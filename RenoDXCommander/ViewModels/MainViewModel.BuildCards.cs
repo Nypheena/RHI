@@ -799,21 +799,31 @@ public partial class MainViewModel
                 // even when the user installs UE-Extended before the game's first launch.
                 // Use the Xbox-specific path for Xbox/Game Pass cards when available.
                 if (newCard.EngineIniProjectOverride == null
-                    && pcgwInfo?.ConfigPath != null || pcgwInfo?.ConfigPathXbox != null)
+                    && (pcgwInfo?.ConfigPath != null || pcgwInfo?.ConfigPathXbox != null))
                 {
                     bool isXboxCard = string.Equals(game.Source, "Xbox", StringComparison.OrdinalIgnoreCase)
                                    || string.Equals(game.Source, "Game Pass", StringComparison.OrdinalIgnoreCase);
-                    var chosenPath = isXboxCard
-                        ? (pcgwInfo?.ConfigPathXbox ?? pcgwInfo?.ConfigPath)
-                        : pcgwInfo?.ConfigPath;
 
-                    if (chosenPath != null
-                        && newCard.EngineIniProjectOverride == null
-                        && (engine == EngineType.Unreal
-                            || newCard.EngineHint?.Contains("Unreal", StringComparison.OrdinalIgnoreCase) == true))
+                    // For Xbox/Game Pass cards: only apply when PCGW has an explicit Microsoft Store
+                    // path. If it only has a Windows path, skip — ResolveEngineIniDir's store-aware
+                    // fallback (WinGDK) handles it correctly without us overriding to the wrong folder.
+                    if (isXboxCard && pcgwInfo?.ConfigPathXbox == null)
                     {
-                        newCard.EngineIniProjectOverride = chosenPath;
-                        _crashReporter.Log($"[BuildCards] '{game.Name}': EngineIniProjectOverride from PCGW = '{chosenPath}'" + (isXboxCard ? " (Xbox)" : ""));
+                        // no-op: let auto-detection handle WinGDK fallback
+                    }
+                    else
+                    {
+                        var chosenPath = isXboxCard
+                            ? pcgwInfo?.ConfigPathXbox
+                            : pcgwInfo?.ConfigPath;
+
+                        if (chosenPath != null
+                            && (engine == EngineType.Unreal
+                                || newCard.EngineHint?.Contains("Unreal", StringComparison.OrdinalIgnoreCase) == true))
+                        {
+                            newCard.EngineIniProjectOverride = chosenPath;
+                            _crashReporter.Log($"[BuildCards] '{game.Name}': EngineIniProjectOverride from PCGW = '{chosenPath}'" + (isXboxCard ? " (Xbox)" : ""));
+                        }
                     }
                 }
             }
