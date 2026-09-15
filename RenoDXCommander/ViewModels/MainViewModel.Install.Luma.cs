@@ -1113,6 +1113,10 @@ public partial class MainViewModel
         if (card?.LumaRecord == null) return;
         try
         {
+            // If dgVoodoo2 was deployed, D3D9.dll is in the installed files — capture before Uninstall clears it
+            bool wasDgVoodoo = card.LumaRecord.InstalledFiles.Contains("D3D9.dll", StringComparer.OrdinalIgnoreCase)
+                            || card.LumaRecord.InstalledFiles.Contains("d3d9.dll", StringComparer.OrdinalIgnoreCase);
+
             // If Feeder is also installed on this game, don't remove dgVoodoo2 — Feeder still needs it.
             // Remove D3D9.dll from the tracked file list so LumaService.Uninstall doesn't clean it up.
             if (card.LumaRecord.InstalledFiles.Contains("D3D9.dll", StringComparer.OrdinalIgnoreCase))
@@ -1124,12 +1128,24 @@ public partial class MainViewModel
                     card.LumaRecord.InstalledFiles.RemoveAll(f => f.Equals("D3D9.dll", StringComparison.OrdinalIgnoreCase)
                                                                 || f.Equals("dgVoodoo.conf", StringComparison.OrdinalIgnoreCase));
                     _crashReporter.Log($"[UninstallLuma] Feeder still installed — preserving dgVoodoo2 files for '{card.GameName}'");
+                    wasDgVoodoo = false; // dgVoodoo stays — don't change ReShade filename
                 }
             }
             _lumaService.Uninstall(card.LumaRecord);
             card.LumaRecord = null;
             card.LumaStatus = GameStatus.NotInstalled;
             card.LumaActionMessage = "✖ Luma removed.";
+
+            // If dgVoodoo2 was deployed (DX9 game), ReShade was forced to dxgi.dll.
+            // Reinstall ReShade without the force override so it reverts to the
+            // correct auto-detected filename (d3d9.dll for DX9 games).
+            bool wasDgVoodooGame = wasDgVoodoo;
+            if (wasDgVoodooGame && card.IsRsInstalled)
+            {
+                card.LumaActionMessage = "Restoring ReShade...";
+                _ = InstallReShadeInternalAsync(card, forceFilename: null);
+            }
+
             // ReShade is managed independently by RHI — do not touch RS status on Luma uninstall.
 
             // Remove launch args if they were auto-set by Luma install

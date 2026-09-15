@@ -13,6 +13,7 @@
 - Fixed MFG dialog (FG Mode, Generation Factor, Target FPS) blocking the UI thread on NVAPI writes.
 - Fixed drag-dropping a `.addon` file (some Luma mods use this extension) showing "No Addon Found" — `.addon` files are now accepted alongside `.addon64` and `.addon32`.
 - Fixed ReShade installing as `dxgi.dll` on Borderlands 2 and Borderlands: The Pre-Sequel — these are DX9 games that should use `d3d9.dll`. The `dxgi.dll` override was intended for Luma+dgVoodoo installs but was incorrectly applied to plain ReShade installs as well.
+- Fixed ReShade remaining as `dxgi.dll` after uninstalling Luma on DX9+dgVoodoo games — it now reinstalls automatically with the correct `d3d9.dll` filename.
 
 ## v2.7.1
 
