@@ -128,7 +128,7 @@ public partial class MainViewModel
     /// Uninstalls DXVK from the given game card.
     /// Removes deployed DLLs, restores backups, and cleans up the tracking record.
     /// </summary>
-    public void UninstallDxvk(GameCardViewModel card)
+    public async Task UninstallDxvkAsync(GameCardViewModel card)
     {
         if (string.IsNullOrEmpty(card.InstallPath)) return;
 
@@ -136,7 +136,7 @@ public partial class MainViewModel
         card.DxvkActionMessage = "Removing DXVK...";
         try
         {
-            _dxvkService.Uninstall(card);
+            await _dxvkService.UninstallAsync(card);
             
             // Clear persisted Vulkan rendering path — Lilium HDR uninstall resets to DirectX
             SetVulkanRenderingPath(card.GameName, "DirectX", card.Source ?? "");
@@ -156,6 +156,9 @@ public partial class MainViewModel
             card.DxvkIsInstalling = false;
         }
     }
+
+    // Keep sync wrapper for callers that pass it as a delegate (bitness change handler etc.)
+    public void UninstallDxvk(GameCardViewModel card) => _ = UninstallDxvkAsync(card);
 
     // ── DXVK Update ───────────────────────────────────────────────────────────────
 

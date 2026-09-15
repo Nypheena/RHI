@@ -89,14 +89,14 @@ public partial class DetailPanelBuilder
         {
             ovTitle.Foreground = UIFactory.Brush(ResourceKeys.AccentTealBrush);
             var handCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
-            typeof(UIElement).GetProperty("ProtectedCursor", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            DetailPanelBuilder.CursorProp
                 ?.SetValue(_window.OverridesHeaderRow, handCursor);
         };
         _ovHeaderExitedHandler = (s, e) =>
         {
             ovTitle.Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush);
             var arrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-            typeof(UIElement).GetProperty("ProtectedCursor", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            DetailPanelBuilder.CursorProp
                 ?.SetValue(_window.OverridesHeaderRow, arrowCursor);
         };
         _ovHeaderPressedHandler = (s, e) =>

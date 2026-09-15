@@ -270,8 +270,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.ShaderCacheSizeOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetShaderCacheSize(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetShaderCacheSize(value));
         }
     }
 
@@ -282,8 +283,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.ShaderPrecompileOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetShaderPrecompile(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetShaderPrecompile(value));
         }
     }
 
@@ -294,8 +296,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.GSyncModeOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGSyncMode(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetGSyncMode(value));
         }
     }
 
@@ -306,8 +309,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.GSyncEnableOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalGSyncEnabled(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetGlobalGSyncEnabled(value));
         }
     }
 
@@ -326,12 +330,13 @@ public sealed partial class MainWindow
         var presets = DlssPresetService.FpsLimiterPresets;
         if (combo.SelectedIndex < presets.Length)
         {
+            var value = presets[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalFpsLimit(presets[combo.SelectedIndex].Value);
-
-            // Ensure games with ReLimiter/DC have per-game FPS cap disabled
-            if (presets[combo.SelectedIndex].Value > 0)
-                DisableFpsLimitForFrameLimiterGames(presetService);
+            _ = Task.Run(() =>
+            {
+                presetService.SetGlobalFpsLimit(value);
+                if (value > 0) DisableFpsLimitForFrameLimiterGames(presetService);
+            });
         }
     }
 
@@ -372,10 +377,11 @@ public sealed partial class MainWindow
         if (result == ContentDialogResult.Primary && uint.TryParse(textBox.Text, out var fps) && fps >= 20 && fps <= 1000)
         {
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalFpsLimit(fps);
-
-            // Ensure games with ReLimiter/DC have per-game FPS cap disabled
-            DisableFpsLimitForFrameLimiterGames(presetService);
+            _ = Task.Run(() =>
+            {
+                presetService.SetGlobalFpsLimit(fps);
+                DisableFpsLimitForFrameLimiterGames(presetService);
+            });
 
             // Add the custom value to the combo and select it
             _shaderCacheComboInit = true;
@@ -408,8 +414,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.PreferredRefreshRateOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetPreferredRefreshRate(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetPreferredRefreshRate(value));
         }
     }
 
@@ -420,8 +427,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.DmfgFrameCountOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalDmfgFrameCount(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetGlobalDmfgFrameCount(value));
         }
     }
 
@@ -440,8 +448,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.DmfgTargetFpsOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalDmfgTargetFps(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetGlobalDmfgTargetFps(value));
         }
     }
 
@@ -461,7 +470,7 @@ public sealed partial class MainWindow
         if (result == ContentDialogResult.Primary && uint.TryParse(textBox.Text, out var fps) && fps >= 20 && fps <= 1000)
         {
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalDmfgTargetFps(fps);
+            _ = Task.Run(() => presetService.SetGlobalDmfgTargetFps(fps));
 
             _shaderCacheComboInit = true;
             var items = DlssPresetService.DmfgTargetFpsOptions.Select(o => o.Name).ToList();
@@ -487,7 +496,7 @@ public sealed partial class MainWindow
         var presetService = App.Services.GetRequiredService<DlssPresetService>();
         // 0=Auto(Default), 1=Off, 2=On → driver values: Auto=1, Off=0, On=2
         uint mode = combo.SelectedIndex switch { 1 => 0u, 2 => 2u, _ => 1u };
-        presetService.SetGlobalReBarEnableMode(mode);
+        _ = Task.Run(() => presetService.SetGlobalReBarEnableMode(mode));
         bool reBarOn = mode == 2; // Only On enables size; Auto and Off grey it
         GlobalReBarSizeCombo.IsEnabled = reBarOn;
         GlobalReBarSizeCombo.Opacity = reBarOn ? 1.0 : 0.4;
@@ -505,8 +514,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.ReBarSizeLimits;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalReBarSizeLimit(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetGlobalReBarSizeLimit(value));
         }
         // Force detail panel rebuild if a game is selected
         if (ViewModel.SelectedGame != null)
@@ -520,8 +530,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.VSyncModeOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalVSyncMode(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetGlobalVSyncMode(value));
         }
         // Force detail panel rebuild if a game is selected
         if (ViewModel.SelectedGame != null)
@@ -535,8 +546,9 @@ public sealed partial class MainWindow
         var options = DlssPresetService.PowerManagementOptions;
         if (combo.SelectedIndex < options.Length)
         {
+            var value = options[combo.SelectedIndex].Value;
             var presetService = App.Services.GetRequiredService<DlssPresetService>();
-            presetService.SetGlobalPowerMode(options[combo.SelectedIndex].Value);
+            _ = Task.Run(() => presetService.SetGlobalPowerMode(value));
         }
     }
 
@@ -1109,7 +1121,7 @@ public sealed partial class MainWindow
         if (sender is not ComboBox combo || combo.SelectedIndex < 0) return;
         bool enabled = combo.SelectedIndex == 0;
         var presetService = App.Services.GetRequiredService<DlssPresetService>();
-        presetService.SetGSyncIndicator(enabled);
+        _ = Task.Run(() => presetService.SetGSyncIndicator(enabled));
     }
 
     private void AutoUpdateDlssCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

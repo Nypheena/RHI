@@ -1,4 +1,4 @@
-﻿// DetailPanelBuilder.Overrides.NvidiaProfile.cs — Nvidia Profile Overrides header + DLSS/Streamline section.
+// DetailPanelBuilder.Overrides.NvidiaProfile.cs — Nvidia Profile Overrides header + DLSS/Streamline section.
 
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -63,7 +63,7 @@ public partial class DetailPanelBuilder
         nvHeaderRow.PointerExited  += (s, e) => nvTitle.Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush);
         var nvHandCursor  = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
         var nvArrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-        var nvCursorProp  = typeof(UIElement).GetProperty("ProtectedCursor", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var nvCursorProp  = DetailPanelBuilder.CursorProp;
         nvHeaderRow.PointerEntered += (s, e) => nvCursorProp?.SetValue(nvHeaderRow, nvHandCursor);
         nvHeaderRow.PointerExited  += (s, e) => nvCursorProp?.SetValue(nvHeaderRow, nvArrowCursor);
         nvHeaderRow.PointerPressed += (s, e) =>
@@ -202,14 +202,14 @@ public partial class DetailPanelBuilder
                     tc.RefreshDlssVersions(dlssService);
                     _window.DispatcherQueue?.TryEnqueue(() => BuildNvidiaProfileSection(tc, tc.GameName));
                 },
-                (preset) => { presetService.SetSrPreset(card.GameName, card.InstallPath, preset); },
+                (preset) => { _ = Task.Run(() => presetService.SetSrPreset(card.GameName, card.InstallPath, preset)); },
                 currentRenderScale: presetService.IsSupported && srEnabled ? (dlssData?.SrRenderScale ?? 0u) : 0u,
-                onRenderScaleSelected: (pct) => { presetService.SetSrRenderScale(card.GameName, card.InstallPath, pct); },
+                onRenderScaleSelected: (pct) => { _ = Task.Run(() => presetService.SetSrRenderScale(card.GameName, card.InstallPath, pct)); },
                 originalVersion: card.DlssDetection?.OriginalDlssVersion,
                 driverOverrideActive: srDriverOverride,
                 onDriverOverrideToggled: presetService.IsSupported && hasDlss ? (enable) =>
                 {
-                    presetService.SetSrDriverOverride(card.GameName, card.InstallPath, enable); } : null);
+                    _ = Task.Run(() => presetService.SetSrDriverOverride(card.GameName, card.InstallPath, enable)); } : null);
             Grid.SetColumn(srCol, 0);
             dlssRowGrid.Children.Add(srCol);
 
@@ -230,14 +230,14 @@ public partial class DetailPanelBuilder
                     tc.RefreshDlssVersions(dlssService);
                     _window.DispatcherQueue?.TryEnqueue(() => BuildNvidiaProfileSection(tc, tc.GameName));
                 },
-                (preset) => { presetService.SetRrPreset(card.GameName, card.InstallPath, preset); },
+                (preset) => { _ = Task.Run(() => presetService.SetRrPreset(card.GameName, card.InstallPath, preset)); },
                 currentRenderScale: presetService.IsSupported && hasDlssd ? (dlssData?.RrRenderScale ?? 0u) : 0u,
-                onRenderScaleSelected: (pct) => { presetService.SetRrRenderScale(card.GameName, card.InstallPath, pct); },
+                onRenderScaleSelected: (pct) => { _ = Task.Run(() => presetService.SetRrRenderScale(card.GameName, card.InstallPath, pct)); },
                 originalVersion: card.DlssDetection?.OriginalDlssdVersion,
                 driverOverrideActive: rrDriverOverride,
                 onDriverOverrideToggled: presetService.IsSupported && hasDlssd ? (enable) =>
                 {
-                    presetService.SetRrDriverOverride(card.GameName, card.InstallPath, enable); } : null);
+                    _ = Task.Run(() => presetService.SetRrDriverOverride(card.GameName, card.InstallPath, enable)); } : null);
             Grid.SetColumn(rrCol, 2);
             dlssRowGrid.Children.Add(rrCol);
 
@@ -259,12 +259,12 @@ public partial class DetailPanelBuilder
                     tc.RefreshDlssVersions(dlssService);
                     _window.DispatcherQueue?.TryEnqueue(() => BuildNvidiaProfileSection(tc, tc.GameName));
                 },
-                (preset) => { presetService.SetFgPreset(card.GameName, card.InstallPath, preset); },
+                (preset) => { _ = Task.Run(() => presetService.SetFgPreset(card.GameName, card.InstallPath, preset)); },
                 originalVersion: card.DlssDetection?.OriginalDlssgVersion,
                 driverOverrideActive: fgDriverOverride,
                 onDriverOverrideToggled: presetService.IsSupported && hasDlssg ? (enable) =>
                 {
-                    presetService.SetFgDriverOverride(card.GameName, card.InstallPath, enable); } : null);
+                    _ = Task.Run(() => presetService.SetFgDriverOverride(card.GameName, card.InstallPath, enable)); } : null);
 
             // Add Multi Frame Generation button to FG column
             fgCol.Children.Add(new TextBlock { Text = " ", FontSize = 10, Margin = new Thickness(0, 2, 0, 0) });
@@ -350,7 +350,7 @@ public partial class DetailPanelBuilder
                         tc.RefreshDlssVersions(dlssService);
                         _window.DispatcherQueue?.TryEnqueue(() => BuildNvidiaProfileSection(tc, tc.GameName));
                     },
-                    (preset) => { presetService.SetNrPreset(card.GameName, card.InstallPath, preset); },
+                    (preset) => { _ = Task.Run(() => presetService.SetNrPreset(card.GameName, card.InstallPath, preset)); },
                     originalVersion: card.DlssDetection?.OriginalDlssnrVersion,
                     driverOverrideActive: nrDriverOverride);
 
@@ -624,24 +624,29 @@ public partial class DetailPanelBuilder
                     c.GameName.Equals(capturedName, StringComparison.OrdinalIgnoreCase));
                 if (targetCard?.DlssDetection != null)
                 {
-                    dlssService.RestoreAll(targetCard.DlssDetection);
-                    presetService.SetSrPreset(targetCard.GameName, targetCard.InstallPath, 0);
-                    presetService.SetRrPreset(targetCard.GameName, targetCard.InstallPath, 0);
-                    presetService.SetFgPreset(targetCard.GameName, targetCard.InstallPath, 0);
-                    if (FeatureFlags.DlssNr && targetCard.HasDlssnr)
-                        presetService.SetNrPreset(targetCard.GameName, targetCard.InstallPath, 0);
-                    presetService.SetSrRenderScale(targetCard.GameName, targetCard.InstallPath, 0);
-                    presetService.SetRrRenderScale(targetCard.GameName, targetCard.InstallPath, 0);
-                    // Reset MFG settings
-                    presetService.SetMfgMode(targetCard.GameName, targetCard.InstallPath, 0);
-                    presetService.SetMfgGenerationFactor(targetCard.GameName, targetCard.InstallPath, 0);
-                    presetService.DeleteMfgDynamicMaxCount(targetCard.GameName, targetCard.InstallPath);
-                    presetService.DeleteMfgDynamicTargetFps(targetCard.GameName, targetCard.InstallPath);
-                    // Clear any NVIDIA driver DLL override selections
-                    if (presetService.IsSupported)
-                        presetService.ClearAllDriverOverrides(targetCard.GameName, targetCard.InstallPath ?? "");
-                    targetCard.RefreshDlssVersions(dlssService);
-                    _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(targetCard));
+                    var tc = targetCard;
+                    var hasDlssnrForReset = FeatureFlags.DlssNr && tc.HasDlssnr;
+                    dlssService.RestoreAll(tc.DlssDetection);
+                    _ = Task.Run(() =>
+                    {
+                        presetService.SetSrPreset(tc.GameName, tc.InstallPath, 0);
+                        presetService.SetRrPreset(tc.GameName, tc.InstallPath, 0);
+                        presetService.SetFgPreset(tc.GameName, tc.InstallPath, 0);
+                        if (hasDlssnrForReset)
+                            presetService.SetNrPreset(tc.GameName, tc.InstallPath, 0);
+                        presetService.SetSrRenderScale(tc.GameName, tc.InstallPath, 0);
+                        presetService.SetRrRenderScale(tc.GameName, tc.InstallPath, 0);
+                        // Reset MFG settings
+                        presetService.SetMfgMode(tc.GameName, tc.InstallPath, 0);
+                        presetService.SetMfgGenerationFactor(tc.GameName, tc.InstallPath, 0);
+                        presetService.DeleteMfgDynamicMaxCount(tc.GameName, tc.InstallPath);
+                        presetService.DeleteMfgDynamicTargetFps(tc.GameName, tc.InstallPath);
+                        // Clear any NVIDIA driver DLL override selections
+                        if (presetService.IsSupported)
+                            presetService.ClearAllDriverOverrides(tc.GameName, tc.InstallPath ?? "");
+                    });
+                    tc.RefreshDlssVersions(dlssService);
+                    _window.DispatcherQueue?.TryEnqueue(() => BuildOverridesPanel(tc));
                 }
             };
             // Add spacer label to align buttons with the Preset/RenderScale rows in other columns

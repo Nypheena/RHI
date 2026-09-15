@@ -710,6 +710,7 @@ public partial class MainViewModel
                 existing.IsManifestUeExtended   = fresh.IsManifestUeExtended;
                 existing.LumaRenodxCompatible   = fresh.LumaMod != null;
                 existing.EngineIniProjectOverride = fresh.EngineIniProjectOverride;
+                existing.GameConfigRootPath      = fresh.GameConfigRootPath;
                 existing.DllOverrideEnabled      = fresh.DllOverrideEnabled;
                 existing.ExcludeFromUpdateAllReShade = fresh.ExcludeFromUpdateAllReShade;
                 existing.ExcludeFromUpdateAllRenoDx  = fresh.ExcludeFromUpdateAllRenoDx;

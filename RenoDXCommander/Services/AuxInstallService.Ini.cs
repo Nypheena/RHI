@@ -1798,4 +1798,92 @@ public partial class AuxInstallService
         CrashReporter.Log($"[AuxInstallService.ApplyEngineIniFromFileAsync] Applied {entries.Count} key(s) from '{filename}' to '{gameName ?? installPath}'");
         return true;
     }
+
+    // ── AppData / game config root resolution ────────────────────────────────────
+
+    /// <summary>
+    /// Resolves the game's AppData / Documents config root folder.
+    /// Used to determine whether the AppData button should be shown for a game.
+    /// Pre-compute this on a background thread (BuildCards / CacheLoad) and cache
+    /// the result on <see cref="ViewModels.GameCardViewModel.GameConfigRootPath"/> so
+    /// the UI thread never performs filesystem I/O when painting the detail panel.
+    /// Returns null when no resolvable config folder is found.
+    /// </summary>
+    public static string? ResolveGameConfigRoot(string installPath, string? engineIniProjectOverride, string? gameName)
+    {
+        var projectName = engineIniProjectOverride ?? ResolveUeProjectName(installPath ?? "");
+
+        // If the override is a full path (or pipe-separated paths), resolve directly
+        if (!string.IsNullOrEmpty(engineIniProjectOverride)
+            && (engineIniProjectOverride.Contains('\\') || engineIniProjectOverride.Contains('/')))
+        {
+            var candidates = engineIniProjectOverride.Split('|');
+            foreach (var candidate in candidates)
+            {
+                var expanded = Environment.ExpandEnvironmentVariables(candidate.Trim());
+                if (Directory.Exists(expanded)) return expanded;
+            }
+            return null;
+        }
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+        // Check %LocalAppData%\{projectName}\
+        if (!string.IsNullOrEmpty(projectName))
+        {
+            var dir = Path.Combine(localAppData, projectName);
+            if (Directory.Exists(dir)) return dir;
+        }
+
+        // Check Documents\My Games\{gameName}\
+        if (!string.IsNullOrEmpty(gameName))
+        {
+            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var myGamesDir = Path.Combine(docs, "My Games", gameName);
+            if (Directory.Exists(myGamesDir)) return myGamesDir;
+
+            // Try stripped name (® ™ ©)
+            var stripped = gameName.Replace("®", "").Replace("™", "").Replace("©", "").Trim();
+            if (stripped != gameName)
+            {
+                myGamesDir = Path.Combine(docs, "My Games", stripped);
+                if (Directory.Exists(myGamesDir)) return myGamesDir;
+            }
+        }
+
+        // Check in-game directory: {GameRoot}\{ProjectName}\Saved\
+        if (!string.IsNullOrEmpty(installPath))
+        {
+            var normalized = installPath.Replace('/', '\\').TrimEnd('\\');
+            var parts = normalized.Split('\\');
+            for (int i = parts.Length - 1; i > 0; i--)
+            {
+                if (parts[i].Equals("Binaries", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Project folder is immediately above Binaries
+                    var projectDir = string.Join('\\', parts.Take(i));
+                    var savedDir = Path.Combine(projectDir, "Saved");
+                    if (Directory.Exists(savedDir)) return projectDir;
+
+                    // Also check sibling folders in the game root
+                    if (i - 1 > 0)
+                    {
+                        var gameRoot = string.Join('\\', parts.Take(i - 1));
+                        try
+                        {
+                            foreach (var subDir in Directory.EnumerateDirectories(gameRoot))
+                            {
+                                var subSaved = Path.Combine(subDir, "Saved");
+                                if (Directory.Exists(subSaved)) return subDir;
+                            }
+                        }
+                        catch { }
+                    }
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
 }

@@ -828,6 +828,11 @@ public partial class MainViewModel
                 }
             }
 
+            // Pre-compute the game's AppData/Documents config root path so the UI thread
+            // never does filesystem I/O when painting the detail panel (AppData button visibility).
+            newCard.GameConfigRootPath = AuxInstallService.ResolveGameConfigRoot(
+                newCard.InstallPath, newCard.EngineIniProjectOverride, newCard.GameName);
+
             // For Vulkan games, RS is installed when reshade.ini exists in the game folder.
             if (newCard.RequiresVulkanInstall)
             {

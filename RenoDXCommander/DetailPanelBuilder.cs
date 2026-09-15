@@ -18,6 +18,13 @@ namespace RenoDXCommander;
 /// </summary>
 public partial class DetailPanelBuilder
 {
+    // Cached once — typeof(UIElement).GetProperty is reflective and called on every card
+    // selection and on every mouse hover over section headers. Storing it as a static field
+    // eliminates repeated MemberInfo lookups across the lifetime of the process.
+    internal static readonly System.Reflection.PropertyInfo? CursorProp =
+        typeof(UIElement).GetProperty("ProtectedCursor",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
     private readonly MainWindow _window;
     private readonly DispatcherQueue _dispatcherQueue;
     private GameCardViewModel? _currentDetailCard;
@@ -65,8 +72,7 @@ public partial class DetailPanelBuilder
 
         // Set hand cursor on link buttons so they feel like clickable links
         var handCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
-        var cursorProp = typeof(UIElement).GetProperty("ProtectedCursor",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var cursorProp = DetailPanelBuilder.CursorProp;
         cursorProp?.SetValue(_window.DetailNexusModsBtn, handCursor);
         cursorProp?.SetValue(_window.DetailPcgwBtn, handCursor);
         cursorProp?.SetValue(_window.DetailUwFixBtn, handCursor);
@@ -181,8 +187,7 @@ public partial class DetailPanelBuilder
                         await Windows.System.Launcher.LaunchUriAsync(new Uri(donationUrl));
                     var handCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
                     var arrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-                    var cursorProp = typeof(UIElement).GetProperty("ProtectedCursor",
-                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    var cursorProp = DetailPanelBuilder.CursorProp;
                     badge.PointerEntered += (s, e) => cursorProp?.SetValue(badge, handCursor);
                     badge.PointerExited += (s, e) => cursorProp?.SetValue(badge, arrowCursor);
                     ToolTipService.SetToolTip(badge, $"Mod author: {author} — click to open Ko-fi donation page");
@@ -233,9 +238,10 @@ public partial class DetailPanelBuilder
         _window.DetailFolderBtn.Tag = card;
 
         // AppData button — visible only for UE games with a resolvable AppData/Documents config folder
+        // GameConfigRootPath is pre-computed on a background thread (BuildCards/CacheLoad) so
+        // no filesystem I/O happens here on the UI thread.
         _window.DetailAppDataBtn.Tag = card;
-        var appDataPath = ResolveGameConfigRoot(card);
-        _window.DetailAppDataBtn.Visibility = appDataPath != null ? Visibility.Visible : Visibility.Collapsed;
+        _window.DetailAppDataBtn.Visibility = card.GameConfigRootPath != null ? Visibility.Visible : Visibility.Collapsed;
 
         // PCGW link button
         _window.DetailPcgwBtn.Tag = card;
@@ -326,8 +332,7 @@ public partial class DetailPanelBuilder
 
             var handCursor  = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
             var arrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-            var cursorProp  = typeof(UIElement).GetProperty("ProtectedCursor",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var cursorProp  = DetailPanelBuilder.CursorProp;
             _window.DetailComponentsHeader.PointerEntered += (s, e) => cursorProp?.SetValue(_window.DetailComponentsHeader, handCursor);
             _window.DetailComponentsHeader.PointerExited  += (s, e) => cursorProp?.SetValue(_window.DetailComponentsHeader, arrowCursor);
 
@@ -346,89 +351,6 @@ public partial class DetailPanelBuilder
     }
 
     /// <summary>
-    /// Resolves the top-level game config directory (for the AppData button).
-    /// Checks %LocalAppData%\{projectName}\ and Documents\My Games\{gameName}\.
-    /// Returns the path if found, null otherwise.
-    /// </summary>
-    private static string? ResolveGameConfigRoot(GameCardViewModel card)
-    {
-        var projectName = card.EngineIniProjectOverride
-            ?? AuxInstallService.ResolveUeProjectName(card.InstallPath ?? "");
-
-        // If the override is a full path (or pipe-separated paths), resolve directly
-        if (!string.IsNullOrEmpty(card.EngineIniProjectOverride)
-            && (card.EngineIniProjectOverride.Contains('\\') || card.EngineIniProjectOverride.Contains('/')))
-        {
-            var candidates = card.EngineIniProjectOverride.Split('|');
-            foreach (var candidate in candidates)
-            {
-                var expanded = Environment.ExpandEnvironmentVariables(candidate.Trim());
-                if (Directory.Exists(expanded)) return expanded;
-            }
-            return null;
-        }
-
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-        // Check %LocalAppData%\{projectName}\
-        if (!string.IsNullOrEmpty(projectName))
-        {
-            var dir = Path.Combine(localAppData, projectName);
-            if (Directory.Exists(dir)) return dir;
-        }
-
-        // Check Documents\My Games\{gameName}\
-        if (!string.IsNullOrEmpty(card.GameName))
-        {
-            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            var myGamesDir = Path.Combine(docs, "My Games", card.GameName);
-            if (Directory.Exists(myGamesDir)) return myGamesDir;
-
-            // Try stripped name (® ™ ©)
-            var stripped = card.GameName.Replace("®", "").Replace("™", "").Replace("©", "").Trim();
-            if (stripped != card.GameName)
-            {
-                myGamesDir = Path.Combine(docs, "My Games", stripped);
-                if (Directory.Exists(myGamesDir)) return myGamesDir;
-            }
-        }
-
-        // Check in-game directory: {GameRoot}\{ProjectName}\Saved\
-        if (!string.IsNullOrEmpty(card.InstallPath))
-        {
-            var normalized = card.InstallPath.Replace('/', '\\').TrimEnd('\\');
-            var parts = normalized.Split('\\');
-            for (int i = parts.Length - 1; i > 0; i--)
-            {
-                if (parts[i].Equals("Binaries", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Project folder is immediately above Binaries
-                    var projectDir = string.Join('\\', parts.Take(i));
-                    var savedDir = Path.Combine(projectDir, "Saved");
-                    if (Directory.Exists(savedDir)) return projectDir;
-
-                    // Also check sibling folders in the game root
-                    if (i - 1 > 0)
-                    {
-                        var gameRoot = string.Join('\\', parts.Take(i - 1));
-                        try
-                        {
-                            foreach (var subDir in Directory.EnumerateDirectories(gameRoot))
-                            {
-                                var subSaved = Path.Combine(subDir, "Saved");
-                                if (Directory.Exists(subSaved)) return subDir;
-                            }
-                        }
-                        catch { }
-                    }
-                    break;
-                }
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>
     /// Clears the graphics API badge panel and adds one badge per detected API.
     /// APIs are shown in a consistent order: DX8 → DX9 → DX10 → DX11 → DX12 → Vulkan → OpenGL.
@@ -589,8 +511,7 @@ public partial class DetailPanelBuilder
 
         var handCursor  = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
         var arrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-        var cursorProp  = typeof(UIElement).GetProperty("ProtectedCursor",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var cursorProp  = DetailPanelBuilder.CursorProp;
 
         handle.PointerEntered += (s, e) =>
         {
@@ -746,8 +667,7 @@ public partial class DetailPanelBuilder
     {
         _window.DetailComponentsTitle.Foreground = UIFactory.Brush(ResourceKeys.AccentTealBrush);
         var handCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
-        typeof(UIElement).GetProperty("ProtectedCursor",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+        DetailPanelBuilder.CursorProp
             ?.SetValue(_window.DetailComponentsHeader, handCursor);
     }
 
@@ -755,8 +675,7 @@ public partial class DetailPanelBuilder
     {
         _window.DetailComponentsTitle.Foreground = UIFactory.Brush(ResourceKeys.TextPrimaryBrush);
         var arrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-        typeof(UIElement).GetProperty("ProtectedCursor",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+        DetailPanelBuilder.CursorProp
             ?.SetValue(_window.DetailComponentsHeader, arrowCursor);
     }
 
@@ -819,8 +738,7 @@ public partial class DetailPanelBuilder
         // Hand cursor on hover
         var handCursor  = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Hand);
         var arrowCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-        var cursorProp  = typeof(UIElement).GetProperty("ProtectedCursor",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var cursorProp  = DetailPanelBuilder.CursorProp;
         headerRow.PointerEntered += (s, e) => cursorProp?.SetValue(headerRow, handCursor);
         headerRow.PointerExited  += (s, e) => cursorProp?.SetValue(headerRow, arrowCursor);
 

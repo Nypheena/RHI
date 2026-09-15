@@ -91,10 +91,13 @@ public partial class DragDropHandler
                 return;
             }
 
-            // Search for renodx- prefixed .addon64 and .addon32 files in the extracted contents
+            // Search for renodx- prefixed .addon64, .addon32, and .addon files in the extracted contents
+            // .addon files (no bitness suffix) are treated as .addon64 for compatibility
             var addonFiles = Directory.GetFiles(tempDir, "*.addon64", SearchOption.AllDirectories)
                 .Concat(Directory.GetFiles(tempDir, "*.addon32", SearchOption.AllDirectories))
-                .Where(f => Path.GetFileName(f).StartsWith("renodx-", StringComparison.OrdinalIgnoreCase))
+                .Concat(Directory.GetFiles(tempDir, "*.addon", SearchOption.AllDirectories))
+                .Where(f => Path.GetFileName(f).StartsWith("renodx-", StringComparison.OrdinalIgnoreCase)
+                         || Path.GetFileName(f).Contains("Luma", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             if (addonFiles.Count == 0)
@@ -103,7 +106,7 @@ public partial class DragDropHandler
                 var noAddonDialog = new ContentDialog
                 {
                     Title = "No Addon Found",
-                    Content = $"No .addon64 or .addon32 files were found inside '{archiveName}'.",
+                    Content = $"No .addon64, .addon32, or .addon files were found inside '{archiveName}'.",
                     CloseButtonText = "OK",
                     XamlRoot = _window.Content.XamlRoot,
                     RequestedTheme = ElementTheme.Dark,
@@ -145,8 +148,64 @@ public partial class DragDropHandler
                 addonToInstall = (combo.SelectedItem as ComboBoxItem)?.Tag as string ?? addonFiles[0];
             }
 
-            // Pass the extracted addon to the existing install flow
-            await ProcessDroppedAddon(addonToInstall);
+            // Route to the correct handler based on file type
+            bool isLumaFile = Path.GetFileName(addonToInstall).Contains("Luma", StringComparison.OrdinalIgnoreCase);
+
+            if (isLumaFile)
+            {
+                // Luma addon found inside the archive — route the original archive to the full Luma install flow
+                // (which extracts the Luma subfolder, shaders, etc. via InstallFromArchiveAsync)
+                var lumaGames = _window.ViewModel.AllCards
+                    .Where(c => c.LumaFeatureEnabled && !string.IsNullOrEmpty(c.InstallPath))
+                    .OrderBy(c => c.GameName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (lumaGames.Count > 0)
+                {
+                    var gameNames = lumaGames.Select(c => c.GameName).ToList();
+                    var preSelectIndex = FuzzyMatchGameIndex(gameNames, archiveName);
+                    var lumaCombo = new ComboBox
+                    {
+                        ItemsSource = gameNames,
+                        SelectedIndex = preSelectIndex,
+                        FontSize = 12,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                    };
+                    var lumaPickDialog = new ContentDialog
+                    {
+                        Title = "🌙 Install Luma Addon",
+                        Content = new StackPanel
+                        {
+                            Spacing = 8,
+                            Children =
+                            {
+                                new TextBlock { Text = $"Install {archiveName} to:", TextWrapping = TextWrapping.Wrap, FontSize = 12 },
+                                lumaCombo,
+                            }
+                        },
+                        PrimaryButtonText = "Install",
+                        CloseButtonText = "Cancel",
+                        XamlRoot = _window.Content.XamlRoot,
+                        RequestedTheme = ElementTheme.Dark,
+                    };
+                    var lumaResult = await DialogService.ShowSafeAsync(lumaPickDialog);
+                    if (lumaResult == ContentDialogResult.Primary)
+                    {
+                        var selectedName = lumaCombo.SelectedItem as string;
+                        var card = lumaGames.FirstOrDefault(c => c.GameName == selectedName);
+                        if (card != null)
+                            await ProcessDroppedLumaArchiveAsync(archivePath, card);
+                    }
+                }
+                else
+                {
+                    await ProcessDroppedAddon(addonToInstall);
+                }
+            }
+            else
+            {
+                await ProcessDroppedAddon(addonToInstall);
+            }
         }
         finally
         {
@@ -232,6 +291,9 @@ public partial class DragDropHandler
             }
         }
 
+        bool isLumaAddon = addonFileName.Contains("Luma", StringComparison.OrdinalIgnoreCase)
+                        || addonFileName.Contains("luma", StringComparison.OrdinalIgnoreCase);
+
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock
         {
@@ -244,7 +306,7 @@ public partial class DragDropHandler
 
         var pickDialog = new ContentDialog
         {
-            Title = "📦 Install RenoDX Addon",
+            Title = isLumaAddon ? "🌙 Install Luma Addon" : "📦 Install RenoDX Addon",
             Content = panel,
             PrimaryButtonText = "Next",
             CloseButtonText = "Cancel",
@@ -278,6 +340,7 @@ public partial class DragDropHandler
         {
             var existing = Directory.GetFiles(installPath, "*.addon64")
                 .Concat(Directory.GetFiles(installPath, "*.addon32"))
+                .Concat(Directory.GetFiles(installPath, "*.addon"))
                 .Where(f => Path.GetFileName(f).StartsWith("renodx", StringComparison.OrdinalIgnoreCase)
                          && !Path.GetFileName(f).StartsWith("renodx-devkit", StringComparison.OrdinalIgnoreCase)
                          && !Path.GetFileName(f).StartsWith("renodx-dlssfix", StringComparison.OrdinalIgnoreCase)
@@ -329,6 +392,7 @@ public partial class DragDropHandler
                 if (!Directory.Exists(searchDir)) continue;
                 var toRemove = Directory.GetFiles(searchDir, "*.addon64")
                     .Concat(Directory.GetFiles(searchDir, "*.addon32"))
+                    .Concat(Directory.GetFiles(searchDir, "*.addon"))
                     .Where(f => Path.GetFileName(f).StartsWith("renodx", StringComparison.OrdinalIgnoreCase)
                              && !Path.GetFileName(f).StartsWith("renodx-devkit", StringComparison.OrdinalIgnoreCase)
                          && !Path.GetFileName(f).StartsWith("renodx-dlssfix", StringComparison.OrdinalIgnoreCase)
@@ -350,15 +414,16 @@ public partial class DragDropHandler
         }
 
         // Copy the addon file to the resolved addon folder
-        var destPath = Path.Combine(addonDeployPath, addonFileName);
+        var effectiveAddonFileName = addonFileName;
+        var destPath = Path.Combine(addonDeployPath, effectiveAddonFileName);
         try
         {
             File.Copy(addonPath, destPath, overwrite: true);
-            _crashReporter.Log($"[DragDropHandler.ProcessDroppedAddon] Installed '{addonFileName}' to '{addonDeployPath}'");
+            _crashReporter.Log($"[DragDropHandler.ProcessDroppedAddon] Installed '{effectiveAddonFileName}' to '{addonDeployPath}'");
 
             // Determine if this is a named mod (not UE-Extended or generic UE)
-            bool isNamedMod = !addonFileName.Equals("renodx-ue-extended.addon64", StringComparison.OrdinalIgnoreCase)
-                           && !addonFileName.Equals("renodx-unrealengine.addon64", StringComparison.OrdinalIgnoreCase);
+            bool isNamedMod = !effectiveAddonFileName.Equals("renodx-ue-extended.addon64", StringComparison.OrdinalIgnoreCase)
+                           && !effectiveAddonFileName.Equals("renodx-unrealengine.addon64", StringComparison.OrdinalIgnoreCase);
 
             // Save an InstalledModRecord so the addon survives refresh/restart
             var installRecord = new InstalledModRecord
@@ -366,7 +431,7 @@ public partial class DragDropHandler
                 GameName      = gameName,
                 InstallPath   = addonDeployPath,
                 Store         = targetCard.Source ?? "",
-                AddonFileName = addonFileName,
+                AddonFileName = effectiveAddonFileName,
                 InstalledAt   = DateTime.UtcNow,
                 // For named mods from Discord, don't use the card's existing SnapshotUrl (could be UE-Extended)
                 SnapshotUrl   = isNamedMod ? null : targetCard.Mod?.SnapshotUrl,
@@ -411,8 +476,8 @@ public partial class DragDropHandler
             // Update card status
             targetCard.InstalledRecord = installRecord;
             targetCard.Status = GameStatus.Installed;
-            targetCard.InstalledAddonFileName = addonFileName;
-            targetCard.RdxInstalledVersion = AuxInstallService.ReadInstalledVersion(addonDeployPath, addonFileName);
+            targetCard.InstalledAddonFileName = effectiveAddonFileName;
+            targetCard.RdxInstalledVersion = AuxInstallService.ReadInstalledVersion(addonDeployPath, effectiveAddonFileName);
             targetCard.NotifyAll();
             _window.ViewModel.SaveLibraryPublic();
 
@@ -520,13 +585,12 @@ public partial class DragDropHandler
                     if (lumaGames.Count > 0)
                     {
                         var gameNames = lumaGames.Select(c => c.GameName).ToList();
-                        var selectedGame = _window.ViewModel.SelectedGame;
-                        var preSelectIndex = selectedGame != null ? gameNames.IndexOf(selectedGame.GameName) : -1;
+                        var preSelectIndex = FuzzyMatchGameIndex(gameNames, filename);
 
                         var combo = new ComboBox
                         {
                             ItemsSource = gameNames,
-                            SelectedIndex = preSelectIndex >= 0 ? preSelectIndex : 0,
+                            SelectedIndex = preSelectIndex,
                             FontSize = 12,
                             HorizontalAlignment = HorizontalAlignment.Stretch,
                         };

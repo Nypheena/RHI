@@ -486,7 +486,7 @@ public sealed partial class MainWindow : Window
                 var fileName = Path.GetFileNameWithoutExtension(filePath).ToLowerInvariant();
                 var gameNames = lumaGames.Select(c => c.GameName).ToList();
                 var autoMatchIndex = gameNames.FindIndex(name =>
-                    fileName.Contains(name.ToLowerInvariant().Replace(":", "").Replace("™", "")));
+                    fileName.Contains(name.ToLowerInvariant().Replace(":", "").Replace("™", "").Replace("®", "")));
 
                 // Always show picker — pre-select the matched game if found
                 var combo = new ComboBox
@@ -498,13 +498,13 @@ public sealed partial class MainWindow : Window
                 };
                 var pickerDialog = new ContentDialog
                 {
-                    Title = "Install Luma Mod",
+                    Title = "🌙 Install Luma Addon",
                     Content = new StackPanel
                     {
                         Spacing = 8,
                         Children =
                         {
-                            new TextBlock { Text = $"Luma mod detected: {Path.GetFileName(filePath)}\n\nSelect game to install to:", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap, FontSize = 12 },
+                            new TextBlock { Text = $"Install {Path.GetFileName(filePath)} to:", TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap, FontSize = 12 },
                             combo,
                         }
                     },

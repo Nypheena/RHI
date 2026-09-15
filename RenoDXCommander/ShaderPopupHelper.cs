@@ -56,16 +56,34 @@ public static class ShaderPopupHelper
 
         var selected = new HashSet<string>(currentSelection ?? [], StringComparer.OrdinalIgnoreCase);
 
+        // Pre-compute pack cache state and exclusions on a background thread so the UI thread
+        // never blocks on _settingsLock.Wait() while a shader pack download is in progress.
+        var packCacheState = await Task.Run(() =>
+        {
+            var result = new Dictionary<string, (bool IsCached, HashSet<string> Exclusions)>(
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var (id, _, _) in shaderPackService.AvailablePacks)
+            {
+                var cached = shaderPackService.IsPackCached(id);
+                var excl   = cached
+                    ? shaderPackService.GetExcludedFiles(id)
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                result[id] = (cached, excl);
+            }
+            return result;
+        });
+
         // Build the include map once — used for dependency auto-select
         Dictionary<string, HashSet<string>> includeMap;
         try { includeMap = shaderPackService.BuildIncludeMap(); }
         catch { includeMap = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase); }
 
         // Build a fallback ownership map for uncached packs — filename → packId.
+        // Uses pre-computed packCacheState to avoid hitting the lock again.
         var uncachedPackOwnership = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (packId, _, _) in packs)
         {
-            if (shaderPackService.IsPackCached(packId)) continue;
+            if (packCacheState.TryGetValue(packId, out var pcs) && pcs.IsCached) continue;
             foreach (var file in shaderPackService.GetPackShaderFiles(new[] { packId }))
                 uncachedPackOwnership.TryAdd(file, packId);
         }
@@ -198,10 +216,10 @@ public static class ShaderPopupHelper
             {
                 var capturedId  = id;
                 var description = shaderPackService.GetPackDescription(id);
-                var isCached    = shaderPackService.IsPackCached(id);
-
+                packCacheState.TryGetValue(id, out var packCs);
+                var isCached          = packCs.IsCached;
                 var initialExclusions = isCached
-                    ? shaderPackService.GetExcludedFiles(id)
+                    ? packCs.Exclusions
                     : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 // ── Build per-file sub-panel ──────────────────────────────────

@@ -13,6 +13,27 @@ public partial class DragDropHandler
     /// Checks if an archive file is a Luma mod by looking for the Luma/d3dcompiler_47*.dll marker.
     /// Supports both zip and 7z formats.
     /// </summary>
+    /// <summary>
+    /// Returns the index of the best fuzzy-matched game for a given filename,
+    /// falling back to the currently selected game, then 0.
+    /// Used to pre-select the correct game in Luma install pickers.
+    /// </summary>
+    private int FuzzyMatchGameIndex(List<string> gameNames, string archiveFileName)
+    {
+        var lower = Path.GetFileNameWithoutExtension(archiveFileName).ToLowerInvariant();
+        var idx = gameNames.FindIndex(name =>
+            lower.Contains(name.ToLowerInvariant()
+                .Replace(":", "").Replace("™", "").Replace("®", "").Replace("'", "")));
+        if (idx >= 0) return idx;
+        var selected = _window.ViewModel.SelectedGame?.GameName;
+        if (selected != null)
+        {
+            idx = gameNames.IndexOf(selected);
+            if (idx >= 0) return idx;
+        }
+        return 0;
+    }
+
     public static bool IsLumaArchive(string archivePath)
     {
         try
@@ -224,6 +245,67 @@ public partial class DragDropHandler
         {
             _crashReporter.Log($"[DragDropHandler.ProcessDroppedLumaArchive] Failed for '{gameName}' — {ex.Message}");
             CrashReporter.WriteCrashReport("DragDropHandler.ProcessDroppedLumaArchive", ex, note: $"Game: {gameName}");
+        }
+    }
+
+    /// <summary>
+    /// Handles a dropped bare Luma addon file (.addon / .addon64 / .addon32 with "Luma" in the name).
+    /// Copies the file to the game folder and sets up tracking as a Luma install.
+    /// </summary>
+    public async Task ProcessDroppedLumaAddonAsync(string addonPath, GameCardViewModel card)
+    {
+        if (card == null || string.IsNullOrEmpty(card.InstallPath)) return;
+
+        var gameName = card.GameName;
+        var addonFileName = Path.GetFileName(addonPath);
+        _crashReporter.Log($"[DragDropHandler.ProcessDroppedLumaAddon] Installing Luma addon '{addonFileName}' to '{gameName}'");
+
+        try
+        {
+            // Copy the addon file to the game folder
+            var destPath = Path.Combine(card.InstallPath, addonFileName);
+            File.Copy(addonPath, destPath, overwrite: true);
+            _crashReporter.Log($"[DragDropHandler.ProcessDroppedLumaAddon] Copied '{addonFileName}' to '{card.InstallPath}'");
+
+            // Build a LumaInstalledRecord tracking the deployed file
+            var record = new Models.LumaInstalledRecord
+            {
+                GameName       = gameName,
+                InstallPath    = card.InstallPath,
+                Store          = card.Source ?? "",
+                InstalledFiles = new List<string> { addonFileName },
+                InstalledAt    = DateTime.UtcNow,
+            };
+            _lumaService.SaveLumaRecord(record);
+
+            // Ensure card has a LumaMod so the Luma row becomes visible
+            if (card.LumaMod == null)
+            {
+                card.LumaMod = new Models.LumaMod
+                {
+                    Name = gameName,
+                    IsGenericLuma = false,
+                    Status = "✅",
+                };
+                card.LumaRenodxCompatible = true;
+            }
+
+            card.LumaRecord = record;
+            card.LumaStatus = GameStatus.Installed;
+
+            // Run the same post-install steps as a full Luma install
+            await _window.ViewModel.ApplyLumaPostInstallAsync(card, record);
+
+            card.NotifyAll();
+            _window.ViewModel.SaveSettingsPublic();
+
+            _window.DispatcherQueue?.TryEnqueue(() => _window.PopulateDetailPanel(card));
+            _crashReporter.Log($"[DragDropHandler.ProcessDroppedLumaAddon] Luma addon install complete for '{gameName}'");
+        }
+        catch (Exception ex)
+        {
+            _crashReporter.Log($"[DragDropHandler.ProcessDroppedLumaAddon] Failed for '{gameName}' — {ex.Message}");
+            CrashReporter.WriteCrashReport("DragDropHandler.ProcessDroppedLumaAddon", ex, note: $"Game: {gameName}");
         }
     }
 }

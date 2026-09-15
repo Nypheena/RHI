@@ -70,7 +70,7 @@ public partial class ShaderPackService
         var cachePath = cacheFiles.FirstOrDefault(f => !f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase));
         if (cachePath == null) return false;
 
-        return PackHasExtractedFiles(pack.Id, cachePath);
+        return PackHasExtractedFilesSync(pack.Id, cachePath);
     }
 
     // ── Per-pack download + extract ───────────────────────────────────────────────
@@ -111,10 +111,10 @@ public partial class ShaderPackService
         if (string.IsNullOrEmpty(ext)) ext = ".zip";
         var cachePath = Path.Combine(DownloadPaths.Shaders, $"shaders_{pack.Id}{ext}");
 
-        var stored = LoadStoredVersion(pack.Id);
+        var stored = await LoadStoredVersionAsync(pack.Id);
         var versionMatch = stored == versionToken && versionToken != "unknown";
         var cacheExists = File.Exists(cachePath);
-        var hasExtracted = PackHasExtractedFiles(pack.Id, cachePath);
+        var hasExtracted = await PackHasExtractedFilesAsync(pack.Id, cachePath);
 
         if (versionMatch && cacheExists && hasExtracted)
         {
@@ -182,7 +182,7 @@ public partial class ShaderPackService
                 var destPath = Path.Combine(ShadersDir, pack.Id, Path.GetFileName(cachePath));
                 Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                 File.Copy(cachePath, destPath, overwrite: true);
-                RecordExtractedFiles(pack.Id, cachePath);
+                await RecordExtractedFilesAsync(pack.Id, cachePath);
                 CrashReporter.Log($"[ShaderPackService.EnsurePackAsync] [{pack.Id}] Copied direct shader file");
             }
             else
@@ -261,7 +261,7 @@ public partial class ShaderPackService
             }
 
             // Record which files this pack contributed so we can verify presence later
-            RecordExtractedFiles(pack.Id, cachePath);
+            await RecordExtractedFilesAsync(pack.Id, cachePath);
             CrashReporter.Log($"[ShaderPackService.EnsurePackAsync] [{pack.Id}] Extracted successfully");
             } // end else (archive extraction)
         }
@@ -271,7 +271,7 @@ public partial class ShaderPackService
             return;
         }
 
-        SaveStoredVersion(pack.Id, versionToken);
+        await SaveStoredVersionAsync(pack.Id, versionToken);
         ClearIncludeCache();
         progress?.Report($"{pack.DisplayName} updated.");
         CrashReporter.Log($"[ShaderPackService.EnsurePackAsync] [{pack.Id}] Done. Version = {versionToken}");
@@ -296,10 +296,26 @@ public partial class ShaderPackService
     /// Uses a timestamp-based fast path: if the cache zip's last-write-time matches
     /// the stored timestamp, the per-file check is skipped entirely.
     /// </summary>
-    private bool PackHasExtractedFiles(string packId, string cachePath)
+    private bool PackHasExtractedFilesSync(string packId, string cachePath)
     {
         if (!File.Exists(cachePath)) return false;
         _settingsLock.Wait();
+        try
+        {
+            var d = ReadSettings();
+            if (!d.TryGetValue(FileListKey(packId), out var json) || string.IsNullOrEmpty(json))
+                return false;
+            var files = JsonSerializer.Deserialize<List<string>>(json) ?? new();
+            return files.Count > 0 && files.All(rel => File.Exists(Path.Combine(AuxInstallService.RsStagingDir, rel)));
+        }
+        catch { return false; }
+        finally { _settingsLock.Release(); }
+    }
+
+    private async Task<bool> PackHasExtractedFilesAsync(string packId, string cachePath)
+    {
+        if (!File.Exists(cachePath)) return false;
+        await _settingsLock.WaitAsync().ConfigureAwait(false);
         try
         {
             var d = ReadSettings();
@@ -334,7 +350,7 @@ public partial class ShaderPackService
     /// After a successful extraction, walks the archive again and records every
     /// extracted relative path so PackHasExtractedFiles can verify them next run.
     /// </summary>
-    private void RecordExtractedFiles(string packId, string cachePath)
+    private async Task RecordExtractedFilesAsync(string packId, string cachePath)
     {
         try
         {
@@ -391,7 +407,7 @@ public partial class ShaderPackService
             } // end else (archive recording)
 
             Dictionary<string, string> d = new();
-            _settingsLock.Wait();
+            await _settingsLock.WaitAsync().ConfigureAwait(false);
             try
             {
                 d = new Dictionary<string, string>(ReadSettings());
@@ -400,7 +416,7 @@ public partial class ShaderPackService
             }
             finally { _settingsLock.Release(); }
         }
-        catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.RecordExtractedFiles] Failed for '{packId}' — {ex.Message}"); }
+        catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.RecordExtractedFilesAsync] Failed for '{packId}' — {ex.Message}"); }
     }
 
     // ── Source resolution ─────────────────────────────────────────────────────────
@@ -502,28 +518,28 @@ public partial class ShaderPackService
 
     private string VersionKey(string packId) => $"ShaderPack_{packId}_Version";
 
-    private string? LoadStoredVersion(string packId)
+    private async Task<string?> LoadStoredVersionAsync(string packId)
     {
-        _settingsLock.Wait();
+        await _settingsLock.WaitAsync().ConfigureAwait(false);
         try
         {
             var d = ReadSettings();
             return d.TryGetValue(VersionKey(packId), out var v) ? v : null;
         }
-        catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.LoadStoredVersion] Failed to load stored version for '{packId}' — {ex.Message}"); return null; }
+        catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.LoadStoredVersionAsync] Failed to load stored version for '{packId}' — {ex.Message}"); return null; }
         finally { _settingsLock.Release(); }
     }
 
-    private void SaveStoredVersion(string packId, string version)
+    private async Task SaveStoredVersionAsync(string packId, string version)
     {
-        _settingsLock.Wait();
+        await _settingsLock.WaitAsync().ConfigureAwait(false);
         try
         {
             var d = new Dictionary<string, string>(ReadSettings());
             d[VersionKey(packId)] = version;
             WriteSettings(d);
         }
-        catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.SaveStoredVersion] Failed to save version for '{packId}' — {ex.Message}"); }
+        catch (Exception ex) { CrashReporter.Log($"[ShaderPackService.SaveStoredVersionAsync] Failed to save version for '{packId}' — {ex.Message}"); }
         finally { _settingsLock.Release(); }
     }
 }

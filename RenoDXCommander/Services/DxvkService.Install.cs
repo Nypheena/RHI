@@ -333,7 +333,7 @@ public partial class DxvkService
     // ── Uninstall ─────────────────────────────────────────────────────
 
     /// <inheritdoc />
-    public void Uninstall(GameCardViewModel card)
+    public async Task UninstallAsync(GameCardViewModel card)
     {
         try
         {
@@ -510,7 +510,7 @@ public partial class DxvkService
                 CrashReporter.Log($"[DxvkService.Uninstall] Deleted Vulkan footprint");
                 try
                 {
-                    SwitchReShadeForDxvkAsync(card, dxvkEnabled: false).GetAwaiter().GetResult();
+                    await SwitchReShadeForDxvkAsync(card, dxvkEnabled: false);
                 }
                 catch (Exception ex)
                 {

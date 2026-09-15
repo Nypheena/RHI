@@ -1,3 +1,18 @@
+## v2.7.2
+
+### Bug Fixes
+
+- Fixed UI freezing when navigating between games — RHI was doing filesystem I/O (directory scans for the AppData button) on the UI thread on every card selection. This is now pre-computed in the background at startup and cached per game.
+- Fixed UI becoming permanently unresponsive after clicking Install on Luma (and potentially other components) — shader pack settings read/write operations were using a synchronous lock that could block the UI thread when background download tasks held the lock concurrently.
+- Fixed DXVK uninstall blocking the UI thread during the ReShade mode switch that follows it.
+- Fixed the shader pack picker briefly freezing the UI when opened during an active shader pack download.
+- Fixed Settings page driver combo changes (Shader Cache, G-Sync, FPS Limit, ReBAR, VSync, Power Mode, etc.) causing brief UI hitches — all NVAPI profile writes are now dispatched to a background thread.
+- Fixed per-game NVIDIA driver setting combos (VSync, Low Latency, Smooth Motion, Power Mode, G-Sync, ReBAR) in the Game Overrides panel causing brief UI hitches on every change.
+- Fixed DLSS preset combos, render scale, and driver override toggles in the NVIDIA Profile section causing brief UI hitches on every change.
+- Fixed RTX HDR toggle and Configure RTX HDR apply button blocking the UI thread on NVAPI writes.
+- Fixed MFG dialog (FG Mode, Generation Factor, Target FPS) blocking the UI thread on NVAPI writes.
+- Fixed drag-dropping a `.addon` file (some Luma mods use this extension) showing "No Addon Found" — `.addon` files are now accepted alongside `.addon64` and `.addon32`.
+
 ## v2.7.1
 
 ### New

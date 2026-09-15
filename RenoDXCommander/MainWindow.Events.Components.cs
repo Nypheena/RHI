@@ -1063,30 +1063,36 @@ public sealed partial class MainWindow
                     }
                 }
                 var enableMidGrey = (uint)Math.Clamp((int)Math.Round(enablePaperWhite * Math.Pow(0.5, 2.2)), 10, 100);
-
-                dlssPresetService.SetRtxHdrEnable(card.GameName, card.InstallPath, 0x01);
-                dlssPresetService.SetRtxHdrPeakBrightness(card.GameName, card.InstallPath, (uint)enablePeakNits);
-                dlssPresetService.SetRtxHdrContrast(card.GameName, card.InstallPath, 125);       // Gamma 2.2 (+25)
-                dlssPresetService.SetRtxHdrSaturation(card.GameName, card.InstallPath, 75);      // -25 (reduced saturation)
-                dlssPresetService.SetRtxHdrMiddleGrey(card.GameName, card.InstallPath, enableMidGrey); // ITU-correct for Gamma 2.2
-
-                CrashReporter.Log($"[RdxCogButton_Click] RTX HDR enabled for '{card.GameName}': PeakNits={enablePeakNits}, Contrast=125 (Gamma 2.2), Sat=75 (-25), MidGrey={enableMidGrey}");
+                var capturedEnablePeakNits = enablePeakNits;
+                var capturedGameName = card.GameName;
+                var capturedInstallPath = card.InstallPath;
+                _ = Task.Run(() =>
+                {
+                    dlssPresetService.SetRtxHdrEnable(capturedGameName, capturedInstallPath, 0x01);
+                    dlssPresetService.SetRtxHdrPeakBrightness(capturedGameName, capturedInstallPath, (uint)capturedEnablePeakNits);
+                    dlssPresetService.SetRtxHdrContrast(capturedGameName, capturedInstallPath, 125);
+                    dlssPresetService.SetRtxHdrSaturation(capturedGameName, capturedInstallPath, 75);
+                    dlssPresetService.SetRtxHdrMiddleGrey(capturedGameName, capturedInstallPath, enableMidGrey);
+                    CrashReporter.Log($"[RdxCogButton_Click] RTX HDR enabled for '{capturedGameName}': PeakNits={capturedEnablePeakNits}, Contrast=125 (Gamma 2.2), Sat=75 (-25), MidGrey={enableMidGrey}");
+                });
             }
             else
             {
                 gameNameService.RtxHdrGames.Remove(card.GameName);
                 card.IsRtxHdrEnabled = false;
 
-                // Delete all RTX HDR settings from profile (revert to global/inherited)
-                // Some settings (0x00DD48Fx) can't be deleted via NvAPI — write defaults instead
-                dlssPresetService.SetRtxHdrEnable(card.GameName, card.InstallPath, 0x00);        // Enable → Off
-                dlssPresetService.SetRtxHdrContrast(card.GameName, card.InstallPath, 100);       // Contrast → 0 (default)
-                dlssPresetService.SetRtxHdrSaturation(card.GameName, card.InstallPath, 100);     // Saturation → 0 (default)
-                dlssPresetService.SetRtxHdrPeakBrightness(card.GameName, card.InstallPath, 0);   // Peak Brightness → N/A
-                dlssPresetService.SetRtxHdrMiddleGrey(card.GameName, card.InstallPath, 50);      // Middle Grey → default
-                dlssPresetService.DeleteSettingRaw(card.GameName, card.InstallPath, 0x00432F84); // Debanding (deletable)
-
-                CrashReporter.Log($"[RdxCogButton_Click] RTX HDR disabled for '{card.GameName}' — all settings deleted from profile");
+                var capturedGameNameD = card.GameName;
+                var capturedInstallPathD = card.InstallPath;
+                _ = Task.Run(() =>
+                {
+                    dlssPresetService.SetRtxHdrEnable(capturedGameNameD, capturedInstallPathD, 0x00);
+                    dlssPresetService.SetRtxHdrContrast(capturedGameNameD, capturedInstallPathD, 100);
+                    dlssPresetService.SetRtxHdrSaturation(capturedGameNameD, capturedInstallPathD, 100);
+                    dlssPresetService.SetRtxHdrPeakBrightness(capturedGameNameD, capturedInstallPathD, 0);
+                    dlssPresetService.SetRtxHdrMiddleGrey(capturedGameNameD, capturedInstallPathD, 50);
+                    dlssPresetService.DeleteSettingRaw(capturedGameNameD, capturedInstallPathD, 0x00432F84);
+                    CrashReporter.Log($"[RdxCogButton_Click] RTX HDR disabled for '{capturedGameNameD}' — all settings deleted from profile");
+                });
             }
 
             card.NotifyAll();
@@ -1457,20 +1463,22 @@ public sealed partial class MainWindow
         var result = await DialogService.ShowSafeAsync(dialog);
         if (result != ContentDialogResult.Primary) return;
 
-        // Write all values
+        // Write all values on a background thread — NVAPI profile writes are kernel-mode calls
         var peakNits = (uint)nitsSlider.Value;
         var contrastStored = (uint)(100 + (int)contrastSlider.Value);
         var satStored = (uint)(100 + (int)satSlider.Value);
         var middleGrey = (uint)mgSlider.Value;
         var debanding = debandingOptions[debandingCombo.SelectedIndex].value;
 
-        dlssPresetService.SetRtxHdrPeakBrightness(card.GameName, card.InstallPath, peakNits);
-        dlssPresetService.SetRtxHdrContrast(card.GameName, card.InstallPath, contrastStored);
-        dlssPresetService.SetRtxHdrSaturation(card.GameName, card.InstallPath, satStored);
-        dlssPresetService.SetRtxHdrMiddleGrey(card.GameName, card.InstallPath, middleGrey);
-        dlssPresetService.SetRtxHdrDebanding(card.GameName, card.InstallPath, debanding);
-
-        CrashReporter.Log($"[RtxHdrConfigButton_Click] Applied RTX HDR settings for '{card.GameName}': PeakNits={peakNits}, Contrast={contrastStored}, Sat={satStored}, MidGrey={middleGrey}, Deband=0x{debanding:X2}");
+        _ = Task.Run(() =>
+        {
+            dlssPresetService.SetRtxHdrPeakBrightness(card.GameName, card.InstallPath, peakNits);
+            dlssPresetService.SetRtxHdrContrast(card.GameName, card.InstallPath, contrastStored);
+            dlssPresetService.SetRtxHdrSaturation(card.GameName, card.InstallPath, satStored);
+            dlssPresetService.SetRtxHdrMiddleGrey(card.GameName, card.InstallPath, middleGrey);
+            dlssPresetService.SetRtxHdrDebanding(card.GameName, card.InstallPath, debanding);
+            CrashReporter.Log($"[RtxHdrConfigButton_Click] Applied RTX HDR settings for '{card.GameName}': PeakNits={peakNits}, Contrast={contrastStored}, Sat={satStored}, MidGrey={middleGrey}, Deband=0x{debanding:X2}");
+        });
         card.ActionMessage = "✅ RTX HDR settings applied.";
         card.FadeMessage(m => card.ActionMessage = m, card.ActionMessage);
     }

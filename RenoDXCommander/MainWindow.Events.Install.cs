@@ -456,8 +456,7 @@ public sealed partial class MainWindow
     {
         if (sender is TextBlock tb && tb.TextDecorations == Windows.UI.Text.TextDecorations.Underline)
         {
-            var prop = typeof(UIElement).GetProperty("ProtectedCursor",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var prop = DetailPanelBuilder.CursorProp;
             prop?.SetValue(tb, _handCursor);
         }
     }
@@ -466,8 +465,7 @@ public sealed partial class MainWindow
     {
         if (sender is FrameworkElement fe)
         {
-            var prop = typeof(UIElement).GetProperty("ProtectedCursor",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var prop = DetailPanelBuilder.CursorProp;
             prop?.SetValue(fe, _arrowCursor);
         }
     }
@@ -563,8 +561,7 @@ public sealed partial class MainWindow
     {
         if (sender is FrameworkElement fe && fe.Tag is GameCardViewModel)
         {
-            var prop = typeof(UIElement).GetProperty("ProtectedCursor",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var prop = DetailPanelBuilder.CursorProp;
             prop?.SetValue(fe, _handCursor);
         }
     }
@@ -573,8 +570,7 @@ public sealed partial class MainWindow
     {
         if (sender is FrameworkElement fe)
         {
-            var prop = typeof(UIElement).GetProperty("ProtectedCursor",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var prop = DetailPanelBuilder.CursorProp;
             prop?.SetValue(fe, _arrowCursor);
         }
     }

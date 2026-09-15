@@ -1032,7 +1032,7 @@ public partial class MainViewModel
                     if (!string.IsNullOrEmpty(preferredVersion))
                         _crashReporter.Log($"[ApplyLumaPostInstall] Wiki recommended v{preferredVersion} not in manifest — using default v{versionEntry.Key} for '{card.GameName}'");
                 }
-                await dgVoodooSvc.EnsureStagedAsync(versionEntry.Key, versionEntry.Value).ConfigureAwait(false);
+                await dgVoodooSvc.EnsureStagedAsync(versionEntry.Key, versionEntry.Value);
                 var deployed = dgVoodooSvc.DeployToGame(card.InstallPath, versionEntry.Key);
                 foreach (var f in deployed)
                     if (!record.InstalledFiles.Contains(f, StringComparer.OrdinalIgnoreCase))
