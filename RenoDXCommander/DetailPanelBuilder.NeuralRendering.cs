@@ -831,9 +831,28 @@ public partial class DetailPanelBuilder
                 if (!card.IsRsInstalled)
                 {
                     _window.DispatcherQueue?.TryEnqueue(() => installBtn.Content = "Installing ReShade...");
-                    await _window.ViewModel.InstallReShadeCommand.ExecuteAsync(card).ConfigureAwait(false);
+
+                    // For DX9 Feeder: dgVoodoo2 will own d3d9.dll, so ReShade must be dxgi.dll.
+                    // Call InstallReShadeInternalAsync directly with the forced filename instead of
+                    // going through InstallReShadeCommand which uses auto-detection (returns d3d9.dll for DX9).
+                    bool feederDx9 = selKey == NrMethodFeeder
+                        && card.DetectedApis.Contains(GraphicsApiType.DirectX9);
+                    if (feederDx9)
+                        await _window.ViewModel.InstallReShadeInternalAsync(card, "dxgi.dll").ConfigureAwait(false);
+                    else
+                        await _window.ViewModel.InstallReShadeCommand.ExecuteAsync(card).ConfigureAwait(false);
+
                     // Wait for card to reflect installed state
                     await Task.Delay(500).ConfigureAwait(false);
+                }
+                else if (selKey == NrMethodFeeder
+                    && card.DetectedApis.Contains(GraphicsApiType.DirectX9)
+                    && card.RsRecord?.InstalledAs?.Equals("d3d9.dll", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    // ReShade already installed as d3d9.dll (wrong for dgVoodoo) — reinstall as dxgi.dll
+                    _window.DispatcherQueue?.TryEnqueue(() => installBtn.Content = "Fixing ReShade filename...");
+                    await _window.ViewModel.InstallReShadeInternalAsync(card, "dxgi.dll").ConfigureAwait(false);
+                    await Task.Delay(300).ConfigureAwait(false);
                 }
 
                 switch (selKey)
