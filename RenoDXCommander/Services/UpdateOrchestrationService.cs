@@ -210,7 +210,11 @@ public class UpdateOrchestrationService : IUpdateOrchestrationService
                     ? dllOverrideService.GetDllOverride(card.GameName)?.ReShadeFileName
                     : (manifestDllResolver?.Invoke(card.GameName)?.ReShade is { Length: > 0 } mRs
                         ? mRs
-                        : MainViewModel.ResolveAutoReShadeFilename(card.DetectedApis));
+                        // DX9 32-bit games with dgVoodoo active must use dxgi.dll (dgVoodoo owns d3d9.dll)
+                        : (card.Is32Bit && card.DetectedApis.Contains(GraphicsApiType.DirectX9)
+                            && File.Exists(System.IO.Path.Combine(card.InstallPath, "dgVoodoo.conf")))
+                            ? "dxgi.dll"
+                            : MainViewModel.ResolveAutoReShadeFilename(card.DetectedApis));
                 var effectiveChannel = card.UseNormalReShade ? null : channelResolver?.Invoke(card.GameName, card.Source) ?? AuxInstallService.ChannelStable;
                 var record = await _auxInstaller.InstallReShadeAsync(
                     card.GameName, card.InstallPath,
