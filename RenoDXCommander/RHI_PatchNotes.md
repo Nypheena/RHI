@@ -1,5 +1,7 @@
 ## v2.7.2
 
+## v2.7.2
+
 ### Bug Fixes
 
 - Fixed UI freezing when navigating between games — RHI was doing filesystem I/O (directory scans for the AppData button) on the UI thread on every card selection. This is now pre-computed in the background at startup and cached per game.
@@ -11,10 +13,13 @@
 - Fixed DLSS preset combos, render scale, and driver override toggles in the NVIDIA Profile section causing brief UI hitches on every change.
 - Fixed RTX HDR toggle and Configure RTX HDR apply button blocking the UI thread on NVAPI writes.
 - Fixed MFG dialog (FG Mode, Generation Factor, Target FPS) blocking the UI thread on NVAPI writes.
-- Fixed drag-dropping a `.addon` file (some Luma mods use this extension) showing "No Addon Found" — `.addon` files are now accepted alongside `.addon64` and `.addon32`.
+- Fixed drag-dropping a `.addon` file (some Luma mods use this extension) showing "No Addon Found" — `.addon` files are now accepted alongside `.addon64` and `.addon32`. Luma-named addon files are now correctly routed through the Luma install flow (with ReShade deploy, dgVoodoo2, shaders, etc.) instead of the RenoDX addon flow. The install picker now shows "🌙 Install Luma Addon" and uses fuzzy filename matching to pre-select the correct game.
 - Fixed ReShade installing as `dxgi.dll` on Borderlands 2 and Borderlands: The Pre-Sequel — these are DX9 games that should use `d3d9.dll`. The `dxgi.dll` override was intended for Luma+dgVoodoo installs but was incorrectly applied to plain ReShade installs as well.
 - Fixed ReShade remaining as `dxgi.dll` after uninstalling Luma on DX9+dgVoodoo games — it now reinstalls automatically with the correct `d3d9.dll` filename.
 - Fixed dgVoodoo2 not deploying for DX9 games when installing DLSS5 Feeder — it was incorrectly gated on the Luma dgVoodoo manifest list, which only covers Luma-specific games. dgVoodoo2 is now deployed for all DX9 Feeder installs.
+- Fixed DLSS5 Feeder installing ReShade as `d3d9.dll` on DX9 games — dgVoodoo2 owns `d3d9.dll` on those games, so ReShade must be `dxgi.dll`. Existing wrong installs are corrected automatically on re-install.
+- Fixed background scan renaming ReShade from `dxgi.dll` back to `ReShade32.dll` on DX9+dgVoodoo Feeder games — the reconciliation logic now correctly skips games where dgVoodoo2 is active.
+- Fixed auto-update installing ReShade as `d3d9.dll` on DX9+dgVoodoo Feeder games — same fix as above applied to the Update All ReShade path.
 
 ## v2.7.1
 
