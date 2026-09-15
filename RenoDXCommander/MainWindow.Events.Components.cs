@@ -3040,7 +3040,8 @@ public sealed partial class MainWindow
         presentCombo.SelectionChanged += (s, ev) =>
         {
             uint value = presentCombo.SelectedIndex == 1 ? 0x00000001u : 0x00000002u;
-            _dlssPresetService.SetVulkanPresentMethod(card.GameName, card.InstallPath ?? "", value);
+            var capturedName = card.GameName; var capturedPath = card.InstallPath ?? "";
+            _ = Task.Run(() => _dlssPresetService.SetVulkanPresentMethod(capturedName, capturedPath, value));
         };
         Grid.SetRow(presentCombo, 0); Grid.SetColumn(presentCombo, 1);
         presentGrid.Children.Add(presentCombo);
@@ -3084,7 +3085,11 @@ public sealed partial class MainWindow
         flagsCombo.SelectionChanged += (s, ev) =>
         {
             if (flagsCombo.SelectedIndex >= 0 && flagsCombo.SelectedIndex < flagOptions.Length)
-                _dlssPresetService.SetVulkanPresentMethodFlags(card.GameName, card.InstallPath ?? "", flagOptions[flagsCombo.SelectedIndex].Value);
+            {
+                var capturedName = card.GameName; var capturedPath = card.InstallPath ?? "";
+                var capturedVal = flagOptions[flagsCombo.SelectedIndex].Value;
+                _ = Task.Run(() => _dlssPresetService.SetVulkanPresentMethodFlags(capturedName, capturedPath, capturedVal));
+            }
         };
         Grid.SetRow(flagsCombo, 1); Grid.SetColumn(flagsCombo, 1);
         presentGrid.Children.Add(flagsCombo);
@@ -3095,15 +3100,15 @@ public sealed partial class MainWindow
             bool isYes = presentCombo.SelectedIndex == 1;
             flagsCombo.IsEnabled = isYes;
             flagsCombo.Opacity = isYes ? 1.0 : 0.35;
+            var capturedName2 = card.GameName; var capturedPath2 = card.InstallPath ?? "";
             if (!isYes)
             {
-                // Write 0x00000000 when swapchain pref is off
-                _dlssPresetService.SetVulkanPresentMethodFlags(card.GameName, card.InstallPath ?? "", 0x00000000u);
+                _ = Task.Run(() => _dlssPresetService.SetVulkanPresentMethodFlags(capturedName2, capturedPath2, 0x00000000u));
             }
             else if (flagsCombo.SelectedIndex >= 0 && flagsCombo.SelectedIndex < flagOptions.Length)
             {
-                // Re-apply the selected flag now that swapchain is on
-                _dlssPresetService.SetVulkanPresentMethodFlags(card.GameName, card.InstallPath ?? "", flagOptions[flagsCombo.SelectedIndex].Value);
+                var capturedVal2 = flagOptions[flagsCombo.SelectedIndex].Value;
+                _ = Task.Run(() => _dlssPresetService.SetVulkanPresentMethodFlags(capturedName2, capturedPath2, capturedVal2));
             }
         };
 
