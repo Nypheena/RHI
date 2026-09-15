@@ -1887,12 +1887,12 @@ public partial class DetailPanelBuilder
         }
 
         // ── DX9 games: deploy dgVoodoo2 (D3D9→DX11 translation) + host64\ folder ──
+        // dgVoodoo2 is required for ALL DX9 Feeder games — not just the Luma manifest list.
         bool isDx9 = card.DetectedApis.Contains(GraphicsApiType.DirectX9);
         if (isDx9)
         {
             var manifest = _window.ViewModel.Manifest;
-            bool needsDgVoodoo = manifest?.LumaRequiresDgVoodoo?.Contains(card.GameName, StringComparer.OrdinalIgnoreCase) == true;
-            if (needsDgVoodoo && manifest?.DgVoodooVersions?.Count > 0)
+            if (manifest?.DgVoodooVersions?.Count > 0)
             {
                 _window.DispatcherQueue?.TryEnqueue(() => statusBtn.Content = "Deploying dgVoodoo2...");
                 try
